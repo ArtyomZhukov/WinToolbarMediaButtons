@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Claude Code
+.claude/
+
+# OS
+Thumbs.db
+desktop.ini
