@@ -22,8 +22,9 @@ public sealed partial class MainWindow : Window
 
     private GlobalSystemMediaTransportControlsSessionManager?    _mediaManager;
     private readonly List<GlobalSystemMediaTransportControlsSession> _trackedSessions = [];
-    private DispatcherTimer? _topmostTimer;
-    private AppBarService?  _appBar;
+    private DispatcherTimer?        _topmostTimer;
+    private AppBarService?          _appBar;
+    private WasapiMonitorService?   _wasapi;
 
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hwnd);
@@ -96,9 +97,20 @@ public sealed partial class MainWindow : Window
         ConfigureWindow();
         ReparentToTaskbar();
         _ = InitMediaMonitorAsync();
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var w = new WasapiMonitorService();
+                w.StateChanged += RefreshPlayPauseIcon;
+                _wasapi = w;
+                RefreshPlayPauseIcon();
+            }
+            catch { }
+        });
         var hwnd = WindowNative.GetWindowHandle(this);
         _appBar = new AppBarService(hwnd);
-        Closed += (_, _) => { _appBar?.Dispose(); _topmostTimer?.Stop(); };
+        Closed += (_, _) => { _appBar?.Dispose(); _wasapi?.Dispose(); _topmostTimer?.Stop(); };
         StartTopmostTimer();
     }
 
@@ -194,11 +206,11 @@ public sealed partial class MainWindow : Window
 
     private void RefreshPlayPauseIcon()
     {
-        var isPlaying = _trackedSessions.Any(s =>
+        var isPlayingSmtc = _trackedSessions.Any(s =>
             s.GetPlaybackInfo()?.PlaybackStatus ==
             GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing);
 
-        var glyph = isPlaying ? GlyphPause : GlyphPlay;
+        var glyph = (isPlayingSmtc || (_wasapi?.IsPlaying ?? false)) ? GlyphPause : GlyphPlay;
         DispatcherQueue.TryEnqueue(() => PlayPauseIcon.Glyph = glyph);
     }
 

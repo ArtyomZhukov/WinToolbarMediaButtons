@@ -225,53 +225,24 @@ XAML Island — это дочернее HWND (`Microsoft.UI.Content.DesktopChild
 Решение и история попыток — в разделе «Z-порядок — итоговое решение» выше.
 
 
-### ❌ Не решено: иконка Play/Pause не меняется (Яндекс Браузер)
+### ✅ Решено: иконка Play/Pause не меняется (Яндекс Браузер)
 
-Яндекс Браузер не интегрирован с Windows SMTC — `GlobalSystemMediaTransportControlsSessionManager` его не видит.
+`IAudioSessionManager2` + `IAudioSessionEnumerator` не удалось использовать из-за сбоя QI в .NET COM-маршалинге.
 
-**Выбранное решение: WASAPI `IAudioSessionManager2`**
-
-#### Цепочка вызовов
+**Итоговое решение: `IAudioMeterInformation` (опрос пикового уровня)**
 
 ```
 IMMDeviceEnumerator
-  └─ GetDefaultAudioEndpoint()            → IMMDevice (динамик по умолчанию)
-       └─ Activate(IAudioSessionManager2) → IAudioSessionManager2
-            └─ GetSessionEnumerator()     → IAudioSessionEnumerator
-                 └─ [каждая сессия]       → IAudioSessionControl
-                      └─ GetState()       → AudioSessionStateActive
+  └─ GetDefaultAudioEndpoint() → IMMDevice
+       └─ Activate(IAudioMeterInformation) → IAudioMeterInformation
+            └─ GetPeakValue() → float  (> 0.001 = играет)
 ```
 
-`AudioSessionStateActive` = звук воспроизводится прямо сейчас.
+`WasapiMonitorService` опрашивает `GetPeakValue()` каждые 200ms через `System.Threading.Timer`. Если пик ненулевой — `IsPlaying = true`, срабатывает событие `StateChanged`.
 
-#### Мониторинг изменений (без поллинга)
+`MainWindow` комбинирует оба источника: `isPlayingSmtc || (_wasapi?.IsPlaying ?? false)`.
 
-- `IAudioSessionManager2::RegisterSessionNotification` — новая сессия появилась
-- `IAudioSessionEvents::OnStateChanged` — сессия перешла в Active/Inactive
-
-Всё на колбэках.
-
-#### Реализация
-
-Новый файл `Services/WasapiMonitorService.cs`:
-- COM-интерфейсы через `[ComImport]`
-- Событие `PlaybackStateChanged(bool isPlaying)`
-- `MainWindow` комбинирует SMTC и WASAPI через `||` — работает для всех источников
-
-#### Сравнение подходов
-
-| | SMTC (текущий) | WASAPI |
-|---|---|---|
-| Яндекс Браузер | ❌ | ✅ |
-| Spotify, VLC | ✅ | ✅ |
-| Название трека | ✅ | ❌ |
-| Системные звуки | ❌ | ⚠️ мигнёт на миг |
-
-#### Прочие варианты (отклонены)
-
-**A. Оптимистичное обновление** — переключать иконку локально при клике. Не синхронизируется с внешними паузами.
-
-**C. Парсинг заголовка окна браузера** — костыль, хрупко, привязано к конкретному браузеру.
+Работает с Яндекс Браузером и любым другим источником звука независимо от SMTC-интеграции.
 
 ---
 
