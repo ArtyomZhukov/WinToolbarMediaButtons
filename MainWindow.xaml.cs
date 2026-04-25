@@ -3,6 +3,7 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
@@ -57,6 +58,9 @@ public sealed partial class MainWindow : Window
     private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("user32.dll")]
     private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
     [DllImport("user32.dll")]
@@ -69,7 +73,10 @@ public sealed partial class MainWindow : Window
     private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct RECT { public int Left, Top, Right, Bottom; }
+    private struct RECT  { public int Left, Top, Right, Bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT { public int X, Y; }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MONITORINFO
@@ -241,11 +248,24 @@ public sealed partial class MainWindow : Window
 
     private void OnRightTapped(object sender, RightTappedRoutedEventArgs e)
     {
-        var exitItem = new MenuFlyoutItem { Text = "Выход" };
+        var s = GetScale();
+
+        // Flyout — отдельное top-level окно; в WS_CHILD-контексте DPI ему не передаётся
+        // автоматически, поэтому масштабируем шрифт вручную через GetScale().
+        var exitItem = new MenuFlyoutItem { Text = "Выход", FontSize = 14 * s };
         exitItem.Click += (_, _) => ((App)Application.Current).CleanExit();
         var menu = new MenuFlyout();
         menu.Items.Add(exitItem);
-        menu.ShowAt((FrameworkElement)sender, e.GetPosition((FrameworkElement)sender));
+
+        // e.GetPosition в WS_CHILD-окне считает смещение неверно из-за Shell_TrayWnd parent —
+        // берём физические координаты курсора и конвертируем в логические через GetScale().
+        GetCursorPos(out var cur);
+        GetWindowRect(WindowNative.GetWindowHandle(this), out var wr);
+        menu.ShowAt(RootGrid, new FlyoutShowOptions
+        {
+            Position  = new Windows.Foundation.Point((cur.X - wr.Left) / s, (cur.Y - wr.Top) / s),
+            Placement = FlyoutPlacementMode.TopEdgeAlignedLeft,
+        });
     }
 
     private void BtnPrev_Click(object sender, RoutedEventArgs e)     => MediaKeyService.Send(MediaKey.PrevTrack);

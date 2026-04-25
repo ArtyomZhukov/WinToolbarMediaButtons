@@ -28,28 +28,23 @@
                     HorizontalAlignment="Left"
                     Spacing="2"
                     Padding="4,0,0,0">
-            <Button Width="52" Height="52" Padding="0" Click="BtnPrev_Click"
-                    ToolTipService.ToolTip="Previous track">
+            <Button Width="52" Height="52" Padding="0" Click="BtnPrev_Click">
                 <FontIcon Glyph="&#xE892;" FontFamily="Segoe Fluent Icons" FontSize="22"/>
             </Button>
-            <Button Width="52" Height="52" Padding="0" Click="BtnPlayPause_Click"
-                    ToolTipService.ToolTip="Play / Pause">
+            <Button Width="52" Height="52" Padding="0" Click="BtnPlayPause_Click">
                 <FontIcon x:Name="PlayPauseIcon" Glyph="&#xE768;" FontFamily="Segoe Fluent Icons" FontSize="22"/>
             </Button>
-            <Button Width="52" Height="52" Padding="0" Click="BtnNext_Click"
-                    ToolTipService.ToolTip="Next track">
+            <Button Width="52" Height="52" Padding="0" Click="BtnNext_Click">
                 <FontIcon Glyph="&#xE893;" FontFamily="Segoe Fluent Icons" FontSize="22"/>
             </Button>
             <Border Width="1" Background="{ThemeResource SystemBaseMediumColor}" Margin="10,10"/>
-            <Button Width="52" Height="52" Padding="0" Click="BtnMute_Click"
-                    ToolTipService.ToolTip="Mute">
+            <Button Width="52" Height="52" Padding="0" Click="BtnMute_Click">
                 <FontIcon x:Name="MuteIcon" Glyph="&#xE74F;" FontFamily="Segoe Fluent Icons" FontSize="22"/>
             </Button>
 
             <!-- Кнопка громкости -->
             <Border x:Name="BtnVolumeControl" Width="156" Height="52"
                     CornerRadius="4" Background="#15FFFFFF"
-                    ToolTipService.ToolTip="Drag to change volume"
                     PointerEntered="BtnVolumeControl_PointerEntered"
                     PointerExited="BtnVolumeControl_PointerExited">
                 <Grid>
@@ -60,10 +55,10 @@
                                 HorizontalAlignment="Center" VerticalAlignment="Center"
                                 Spacing="8">
                         <FontIcon x:Name="VolumeIcon" Glyph="&#xE767;"
-                                  FontFamily="Segoe Fluent Icons" FontSize="18"
+                                  FontFamily="Segoe Fluent Icons" FontSize="22"
                                   VerticalAlignment="Center"/>
                         <TextBlock x:Name="VolumePercentText"
-                                   FontSize="13" FontWeight="SemiBold"
+                                   FontSize="16" FontWeight="SemiBold"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
                 </Grid>
