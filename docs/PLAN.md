@@ -246,6 +246,24 @@ IMMDeviceEnumerator
 
 ---
 
+### 💡 Идея: регулировка громкости drag-ом (TouchBar-стиль)
+
+**Реализация: drag + клик.**
+
+Три кнопки громкости (Vol-, Vol+, Mute) заменяются двумя:
+- **Mute** — E74F, toggle
+- **VolumeControl** — drag по горизонтали меняет громкость; клик (без движения) открывает popup-слайдер
+
+**Технический стек:**
+- `IAudioEndpointVolume` (WASAPI COM) — `GetMasterVolumeLevelScalar` / `SetMasterVolumeLevelScalar` / `GetMute` / `SetMute`
+- `PointerPressed/Moved/Released` на кнопке — drag если Δx > 5px, иначе клик
+- Чувствительность: 1% на 2 логических пикселя (200px = полный диапазон)
+- Popup: отдельный `Window` без XAML; вертикальный `Slider`; закрывается при потере фокуса
+
+**LogicalWidth:** 349 → 295 (5 кнопок вместо 6)
+
+---
+
 ### 💡 Идея: отображение названия трека
 
 Источник данных: `GlobalSystemMediaTransportControlsSession.GetMediaPropertiesAsync()` — даёт `Title`, `Artist`, `Thumbnail`. Работает для SMTC-источников (Edge, Chrome, VLC и др.). Яндекс Браузер не поддерживается (WASAPI не несёт метаданных).

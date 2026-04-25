@@ -14,6 +14,20 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        UnhandledException += (_, e) =>
+        {
+            try
+            {
+                var log = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                    "WinToolbarCrash.log");
+                File.AppendAllText(log,
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}]\n" +
+                    $"{e.Exception?.GetType()?.FullName}: {e.Exception?.Message}\n" +
+                    $"{e.Exception?.StackTrace}\n\n");
+            }
+            catch { }
+        };
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)

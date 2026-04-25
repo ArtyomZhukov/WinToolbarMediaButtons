@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -14,7 +14,7 @@ namespace WinToolbarMediaButtons;
 
 public sealed partial class MainWindow : Window
 {
-    private const int LogicalWidth  = 349;
+    private const int LogicalWidth  = 399;
     private const int LogicalHeight = 52;
 
     private const string GlyphPlay  = "";
@@ -25,6 +25,15 @@ public sealed partial class MainWindow : Window
     private DispatcherTimer?        _topmostTimer;
     private AppBarService?          _appBar;
     private WasapiMonitorService?   _wasapi;
+    private VolumeEndpointService?  _volumeEndpoint;
+
+    private bool  _volumePressActive;
+    private bool  _isDragging;
+    private float _dragStartX;
+    private float _dragStartVolume;
+
+    private readonly SolidColorBrush _volNormal  = new(Windows.UI.Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF));
+    private readonly SolidColorBrush _volHover   = new(Windows.UI.Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF));
 
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hwnd);
@@ -43,6 +52,9 @@ public sealed partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [DllImport("user32.dll")]
     private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
@@ -110,7 +122,18 @@ public sealed partial class MainWindow : Window
         });
         var hwnd = WindowNative.GetWindowHandle(this);
         _appBar = new AppBarService(hwnd);
-        Closed += (_, _) => { _appBar?.Dispose(); _wasapi?.Dispose(); _topmostTimer?.Stop(); };
+
+        try { _volumeEndpoint = new VolumeEndpointService(); } catch { }
+        if (_volumeEndpoint is not null)
+        {
+            var vol = _volumeEndpoint.GetVolume();
+            MuteIcon.Glyph         = _volumeEndpoint.GetMute() ? "" : "";
+            VolumePercentText.Text = $"{(int)Math.Round(vol * 100)}%";
+            UpdateVolumeIcon(vol);
+            UpdateVolumeFill(vol);
+        }
+
+        Closed += (_, _) => { _appBar?.Dispose(); _wasapi?.Dispose(); _volumeEndpoint?.Dispose(); _topmostTimer?.Stop(); };
         StartTopmostTimer();
     }
 
@@ -225,10 +248,100 @@ public sealed partial class MainWindow : Window
         menu.ShowAt((FrameworkElement)sender, e.GetPosition((FrameworkElement)sender));
     }
 
-    private void BtnPrev_Click(object sender, RoutedEventArgs e)      => MediaKeyService.Send(MediaKey.PrevTrack);
-    private void BtnPlayPause_Click(object sender, RoutedEventArgs e)  => MediaKeyService.Send(MediaKey.PlayPause);
-    private void BtnNext_Click(object sender, RoutedEventArgs e)       => MediaKeyService.Send(MediaKey.NextTrack);
-    private void BtnVolDown_Click(object sender, RoutedEventArgs e) => VolumeService.Send(VolumeKey.Down);
-    private void BtnVolUp_Click(object sender, RoutedEventArgs e)   => VolumeService.Send(VolumeKey.Up);
-    private void BtnMute_Click(object sender, RoutedEventArgs e)    => VolumeService.Send(VolumeKey.Mute);
+    private void BtnPrev_Click(object sender, RoutedEventArgs e)     => MediaKeyService.Send(MediaKey.PrevTrack);
+    private void BtnPlayPause_Click(object sender, RoutedEventArgs e) => MediaKeyService.Send(MediaKey.PlayPause);
+    private void BtnNext_Click(object sender, RoutedEventArgs e)      => MediaKeyService.Send(MediaKey.NextTrack);
+
+    private void BtnMute_Click(object sender, RoutedEventArgs e)
+    {
+        if (_volumeEndpoint is null) return;
+        try
+        {
+            _volumeEndpoint.ToggleMute();
+            MuteIcon.Glyph = _volumeEndpoint.GetMute() ? "" : "";
+        }
+        catch { }
+    }
+
+    private void BtnVolumeControl_PointerEntered(object sender, PointerRoutedEventArgs e)
+        => BtnVolumeControl.Background = _volHover;
+
+    private void BtnVolumeControl_PointerExited(object sender, PointerRoutedEventArgs e)
+        => BtnVolumeControl.Background = _volNormal;
+
+    private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        // Срабатывает только от BtnVolumeControl — Button-ы помечают PointerPressed как Handled
+        // и не дают ему всплыть; Border без обработчика — даёт
+        var src = e.OriginalSource as DependencyObject;
+        while (src is not null && !ReferenceEquals(src, BtnVolumeControl))
+            src = VisualTreeHelper.GetParent(src);
+        if (src is null) return;
+        if (_volumeEndpoint is null) return;
+
+        _volumePressActive = true;
+        _isDragging        = false;
+        _dragStartX        = (float)e.GetCurrentPoint(RootGrid).Position.X;
+        _dragStartVolume   = _volumeEndpoint.GetVolume();
+        RootGrid.CapturePointer(e.Pointer);
+    }
+
+    private void RootGrid_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_volumePressActive || _volumeEndpoint is null) return;
+        var currentX = (float)e.GetCurrentPoint(RootGrid).Position.X;
+        var deltaX   = currentX - _dragStartX;
+
+        if (!_isDragging)
+        {
+            if (Math.Abs(deltaX) < 4) return;
+            _isDragging = true;
+            _dragStartX = currentX; // re-anchor: delta starts from 0, не от места нажатия
+            return;
+        }
+
+        var newVolume = Math.Clamp(_dragStartVolume + deltaX / 200f, 0f, 1f);
+        var ep = _volumeEndpoint;
+        _ = Task.Run(() => { try { ep.SetVolume(newVolume); } catch { } });
+        UpdateSliderDisplay(newVolume);
+
+        // При достижении границы переустанавливаем точку отсчёта — иначе при 0%
+        // нужно тащить обратно мимо стартовой позиции, чтобы поднять громкость
+        if (newVolume is 0f or 1f)
+        {
+            _dragStartX      = currentX;
+            _dragStartVolume = newVolume;
+        }
+    }
+
+    private void RootGrid_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_volumePressActive) return;
+        _volumePressActive = false;
+        RootGrid.ReleasePointerCapture(e.Pointer);
+        _isDragging = false;
+    }
+
+    private void UpdateSliderDisplay(float volume)
+    {
+        VolumePercentText.Text = $"{(int)Math.Round(volume * 100)}%";
+        UpdateVolumeIcon(volume);
+        UpdateVolumeFill(volume);
+    }
+
+    private void UpdateVolumeFill(float volume)
+    {
+        VolumeFillBar.Width = 156.0 * volume;
+    }
+
+    private void UpdateVolumeIcon(float volume)
+    {
+        VolumeIcon.Glyph = volume switch
+        {
+            0f      => "",
+            < 0.33f => "",
+            < 0.67f => "",
+            _       => "",
+        };
+    }
 }

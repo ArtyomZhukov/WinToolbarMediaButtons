@@ -2,9 +2,12 @@
     x:Class="WinToolbarMediaButtons.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives">
+>
 
-    <Grid Background="#1c1c1c" RightTapped="OnRightTapped" RequestedTheme="Dark">
+    <Grid x:Name="RootGrid" Background="#1c1c1c" RightTapped="OnRightTapped" RequestedTheme="Dark"
+          PointerPressed="RootGrid_PointerPressed"
+          PointerMoved="RootGrid_PointerMoved"
+          PointerReleased="RootGrid_PointerReleased">
         <Grid.Resources>
             <ResourceDictionary>
                 <ResourceDictionary.ThemeDictionaries>
@@ -15,12 +18,6 @@
                         <SolidColorBrush x:Key="ButtonBorderBrushPointerOver"       Color="Transparent"/>
                         <SolidColorBrush x:Key="ButtonBackgroundPressed"            Color="#11FFFFFF"/>
                         <SolidColorBrush x:Key="ButtonBorderBrushPressed"           Color="Transparent"/>
-                        <SolidColorBrush x:Key="RepeatButtonBackground"             Color="Transparent"/>
-                        <SolidColorBrush x:Key="RepeatButtonBorderBrush"            Color="Transparent"/>
-                        <SolidColorBrush x:Key="RepeatButtonBackgroundPointerOver"  Color="#22FFFFFF"/>
-                        <SolidColorBrush x:Key="RepeatButtonBorderBrushPointerOver" Color="Transparent"/>
-                        <SolidColorBrush x:Key="RepeatButtonBackgroundPressed"      Color="#11FFFFFF"/>
-                        <SolidColorBrush x:Key="RepeatButtonBorderBrushPressed"     Color="Transparent"/>
                     </ResourceDictionary>
                 </ResourceDictionary.ThemeDictionaries>
             </ResourceDictionary>
@@ -44,20 +41,34 @@
                 <FontIcon Glyph="&#xE893;" FontFamily="Segoe Fluent Icons" FontSize="22"/>
             </Button>
             <Border Width="1" Background="{ThemeResource SystemBaseMediumColor}" Margin="10,10"/>
-            <primitives:RepeatButton Width="52" Height="52" Padding="0" Delay="500" Interval="33"
-                    Click="BtnVolDown_Click"
-                    ToolTipService.ToolTip="Volume down">
-                <FontIcon Glyph="&#xE993;" FontFamily="Segoe Fluent Icons" FontSize="22"/>
-            </primitives:RepeatButton>
-            <primitives:RepeatButton Width="52" Height="52" Padding="0" Delay="500" Interval="33"
-                    Click="BtnVolUp_Click"
-                    ToolTipService.ToolTip="Volume up">
-                <FontIcon Glyph="&#xE995;" FontFamily="Segoe Fluent Icons" FontSize="22"/>
-            </primitives:RepeatButton>
             <Button Width="52" Height="52" Padding="0" Click="BtnMute_Click"
                     ToolTipService.ToolTip="Mute">
-                <FontIcon Glyph="&#xE74F;" FontFamily="Segoe Fluent Icons" FontSize="22"/>
+                <FontIcon x:Name="MuteIcon" Glyph="&#xE74F;" FontFamily="Segoe Fluent Icons" FontSize="22"/>
             </Button>
+
+            <!-- Кнопка громкости -->
+            <Border x:Name="BtnVolumeControl" Width="156" Height="52"
+                    CornerRadius="4" Background="#15FFFFFF"
+                    ToolTipService.ToolTip="Drag to change volume"
+                    PointerEntered="BtnVolumeControl_PointerEntered"
+                    PointerExited="BtnVolumeControl_PointerExited">
+                <Grid>
+                    <Rectangle x:Name="VolumeFillBar"
+                               HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                               Width="0" Fill="#1EFFFFFF"/>
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Spacing="8">
+                        <FontIcon x:Name="VolumeIcon" Glyph="&#xE767;"
+                                  FontFamily="Segoe Fluent Icons" FontSize="18"
+                                  VerticalAlignment="Center"/>
+                        <TextBlock x:Name="VolumePercentText"
+                                   FontSize="13" FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
         </StackPanel>
     </Grid>
 </Window>
