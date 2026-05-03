@@ -159,13 +159,6 @@ public sealed partial class MainWindow : Window
         AppWindow.SetPresenter(presenter);
         AppWindow.IsShownInSwitchers = false;
 
-        AppWindow.TitleBar.ExtendsContentIntoTitleBar    = true;
-        AppWindow.TitleBar.BackgroundColor               = Colors.Transparent;
-        AppWindow.TitleBar.InactiveBackgroundColor       = Colors.Transparent;
-        AppWindow.TitleBar.ButtonBackgroundColor         = Colors.Transparent;
-        AppWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-
-
         var hwnd = WindowNative.GetWindowHandle(this);
 
         int noBorder = DWMWA_COLOR_NONE;

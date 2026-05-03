@@ -9,13 +9,50 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableMsixTooling>true</EnableMsixTooling>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.*" />
-    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.*" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.*" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="MainForm.cs" />
+    <Compile Remove="Program.cs" />
+    <EmbeddedResource Remove="MainForm.resx" />
+  </ItemGroup>
+
+  <!-- Remove unused WinAppSDK Projection DLLs to reduce EXE size.
+       Keep: InteractiveExperiences, WebView2, Widgets (WinUI may need at startup).
+       Safe to remove: AI, Notifications, OAuth, background tasks, media/storage/power. -->
+  <Target Name="RemoveUnneededPublishFiles" BeforeTargets="_ComputeFilesToBundle">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+        Condition="
+          '%(Filename)%(Extension)' == 'Microsoft.Web.WebView2.Core.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Web.WebView2.Core.Projection.dll' or
+          '%(Filename)%(Extension)' == 'WebView2Loader.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.Widgets.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.AppNotifications.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.AppNotifications.Builder.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.PushNotifications.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.BadgeNotifications.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Security.Authentication.OAuth.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.Media.Capture.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.Storage.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.System.Power.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.Management.Deployment.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.ApplicationModel.Resources.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.ApplicationModel.Background.Projection.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Windows.ApplicationModel.Background.UniversalBGTask.dll' or
+          '%(Filename)%(Extension)' == 'Microsoft.Graphics.Imaging.Projection.dll' or
+          $([System.String]::Copy('%(Filename)').StartsWith('Microsoft.Windows.AI.'))" />
+    </ItemGroup>
+  </Target>
+
 </Project>

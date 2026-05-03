@@ -1,15 +1,13 @@
-using System.Drawing;
-using H.NotifyIcon;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
+using WinRT.Interop;
 using WinToolbarMediaButtons.Services;
 
 namespace WinToolbarMediaButtons;
 
 public partial class App : Application
 {
-    private MainWindow? _window;
-    private TaskbarIcon? _trayIcon;
+    private MainWindow?      _window;
+    private TrayIconService? _tray;
 
     public App()
     {
@@ -34,43 +32,19 @@ public partial class App : Application
     {
         _window = new MainWindow();
         _window.Activate();
-        InitTrayIcon();
-    }
 
-    private void InitTrayIcon()
-    {
-        var autostartItem = new MenuFlyoutItem { Text = GetAutostartText() };
-        autostartItem.Click += (_, _) =>
-        {
-            if (AutostartService.IsEnabled()) AutostartService.Disable();
-            else AutostartService.Enable();
-            autostartItem.Text = GetAutostartText();
-        };
-
-        var exitItem = new MenuFlyoutItem { Text = "Выход" };
-        exitItem.Click += (_, _) => CleanExit();
-
-        var menu = new MenuFlyout();
-        menu.Items.Add(autostartItem);
-        menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(exitItem);
-
+        var hwnd     = WindowNative.GetWindowHandle(_window);
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
-        _trayIcon = new TaskbarIcon
-        {
-            ToolTipText = "Media Buttons",
-            ContextFlyout = menu,
-            Icon = new Icon(iconPath),
-        };
-        _trayIcon.ForceCreate();
+        _tray = new TrayIconService(
+            hwnd, iconPath,
+            getAutostart:    AutostartService.IsEnabled,
+            toggleAutostart: () => { if (AutostartService.IsEnabled()) AutostartService.Disable(); else AutostartService.Enable(); },
+            exit:            CleanExit);
     }
 
     public void CleanExit()
     {
-        _trayIcon?.Dispose();
+        _tray?.Dispose();
         Environment.Exit(0);
     }
-
-    private static string GetAutostartText() =>
-        AutostartService.IsEnabled() ? "Автозапуск: ✓ выключить" : "Автозапуск: включить";
 }
