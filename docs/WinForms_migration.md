@@ -323,49 +323,80 @@ static class Startup
 
 ## Оптимизация размера EXE
 
-Baseline: WinAppSDK 1.8 + PublishSingleFile = **~82 МБ**
+### Итоговый размер: 34.7 МБ ✅
 
-Managed DLL — основные виновники размера:
+| Шаг | Результат |
+|-----|-----------|
+| WinAppSDK 1.8 + H.NotifyIcon | **82 МБ** (baseline) |
+| WinAppSDK 1.7 | **40 МБ** |
+| Убрать H.NotifyIcon → нативный Shell_NotifyIcon | **38 МБ** |
+| MSBuild Target: удалить неиспользуемые Projection DLL | **34.7 МБ** |
 
-| Файл | Размер |
-|------|--------|
-| `Microsoft.Windows.SDK.NET.dll` | ~25 МБ |
-| `Microsoft.WinUI.dll` | ~7 МБ |
-| `Microsoft.InteractiveExperiences.Projection.dll` | ~1.5 МБ |
-| `System.Private.Windows.Core.dll` | ~1.2 МБ |
-| `Microsoft.Web.WebView2.Core.dll` | ~0.8 МБ |
-| `H.NotifyIcon` + `System.Drawing.Common` | ~3–4 МБ |
+### Что нельзя убрать (обязательные зависимости WinUI 3)
+
+| Файл | Размер | Причина |
+|------|--------|---------|
+| `Microsoft.Windows.SDK.NET.dll` | 25 МБ | WinUI 3 зависит напрямую, без него не запустится |
+| `Microsoft.WinUI.dll` | 7 МБ | Ядро WinUI 3 |
+| `Microsoft.InteractiveExperiences.Projection.dll` | 1.6 МБ | Нужен при инициализации WinUI (краш без него) |
+| `WinRT.Runtime.dll` | 517 КБ | WinRT-проекции |
+| `Microsoft.WindowsAppRuntime.Bootstrap.dll` | 388 КБ | Bootstrap нативный, обязателен |
+
+**34.7 МБ — практический минимум** для WinUI 3 FDD single-file на этой машине. 32 МБ из них — это `SDK.NET.dll` + `WinUI.dll`, не подлежащие сокращению.
+
+---
 
 ### Вариант 1: WinAppSDK 1.7 вместо 1.8 ✅
 
-1.6 — не существует нужный NuGet `1.6.250519001`, а `1.6.250602001` требует runtime новее установленного `6000.519.329.0`.  
-1.7 (`7000.785.2325.0`) установлен и работает.
+`1.6.*` → NuGet `1.6.250602001` требует runtime новее установленного `6000.519.329.0` (= WinAppSDK 1.6, май 19).  
+`1.7.*` (`7000.785.2325.0`) установлен и совпадает.
 
-- Размер: **~40 МБ** (вдвое меньше 1.8)
-- Риск: минимальный
-- Усилие: изменить одну строку в csproj
+- Размер: **40 МБ** (−42 МБ от 1.8)
+- Усилие: одна строка в csproj
 
-### Вариант 2: Убрать H.NotifyIcon.WinUI → нативный Shell_NotifyIcon
+### Вариант 2: Убрать H.NotifyIcon.WinUI → нативный Shell_NotifyIcon ✅
 
-`H.NotifyIcon.WinUI` тянет `System.Drawing.Common`, `System.Private.Windows.Core`, WebView2. Замена на P/Invoke `Shell_NotifyIcon` — ~50 строк кода, нет зависимостей.
+`H.NotifyIcon.WinUI` тянул `System.Drawing.Common`, `System.Private.Windows.Core`. Замена на P/Invoke `Shell_NotifyIcon` — ~150 строк, нет зависимостей (`Services/TrayIconService.cs`).
 
-- Ожидаемый размер: **−3–4 МБ**
-- Риск: минимальный
-- Усилие: небольшое
+- Размер: **38 МБ** (−2 МБ)
 
-### Вариант 3: PublishTrimmed
+### Вариант 3: PublishTrimmed ❌
 
-Триммер удаляет неиспользуемый код. `Microsoft.Windows.SDK.NET.dll` (25 МБ) использован на ~1% — потенциально сжимается до 2–5 МБ. WinUI 3 + trimming официально не поддерживается (XAML-рефлексия), требует аннотаций.
+`TrimMode=partial` и `TrimMode=full` с `--self-contained` — оба дали **53 МБ** (хуже).  
+.NET runtime добавляет ~15 МБ, а WinUI/SDK.NET.dll не режутся (XAML-рефлексия).  
+`PublishTrimmed` с `--no-self-contained` — ошибка NETSDK1102 (не поддерживается).
 
-- Ожидаемый размер: **10–25 МБ** (при удаче)
-- Риск: средний — XAML может упасть в рантайме
-- Усилие: среднее
+### Вариант 4: MSBuild Target — удаление неиспользуемых Projection DLL ✅
 
-### Вариант 4 (комбо): 1.6 + убрать H.NotifyIcon
+WinAppSDK включает десятки `*.Projection.dll` (AppNotifications, WebView2, AI, OAuth и др.).  
+Ни одна из них не используется приложением и большинство не нужны WinUI при старте.
 
-- Ожидаемый размер: **~35 МБ**
+Ключевой момент: Target должен быть `BeforeTargets="_ComputeFilesToBundle"` — только тогда DLL исключаются из single-file бандла. `AfterTargets="ComputeFilesToPublish"` работает только для folder-publish.
 
-### Вариант 5 (комбо): 1.6 + убрать H.NotifyIcon + trimming
+```xml
+<Target Name="RemoveUnneededPublishFiles" BeforeTargets="_ComputeFilesToBundle">
+  <ItemGroup>
+    <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+      Condition="
+        '%(Filename)%(Extension)' == 'Microsoft.Web.WebView2.Core.dll' or
+        '%(Filename)%(Extension)' == 'Microsoft.Web.WebView2.Core.Projection.dll' or
+        '%(Filename)%(Extension)' == 'WebView2Loader.dll' or
+        '%(Filename)%(Extension)' == 'Microsoft.Windows.Widgets.Projection.dll' or
+        '%(Filename)%(Extension)' == 'Microsoft.Windows.AppNotifications.Projection.dll' or
+        ...
+        $([System.String]::Copy('%(Filename)').StartsWith('Microsoft.Windows.AI.'))" />
+  </ItemGroup>
+</Target>
+```
 
-- Ожидаемый размер: **10–20 МБ** при удаче
-- Риск: высокий
+Попытка убрать `Microsoft.InteractiveExperiences.Projection.dll` — краш при старте. Оставлена.
+
+- Размер: **34.7 МБ** (−3.3 МБ от 38 МБ)
+
+---
+
+### Ловушка: дублирование файлов при повторных publish
+
+WinAppSDK .targets (`Microsoft.Build.Msix.Packaging.targets`) сохраняет снапшоты `ResolvedFileToPublish` в `obj/`. При повторной публикации без очистки `bin/obj` — старые снапшоты накапливаются, и EXE вырастает кратно (2x, 3x).
+
+**Решение:** всегда удалять `bin/`, `obj/`, `publish/` перед сборкой. `build.bat` это делает.
