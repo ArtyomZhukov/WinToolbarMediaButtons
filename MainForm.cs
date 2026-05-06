@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using WinToolbarMediaButtons.Services;
 
 namespace WinToolbarMediaButtons;
@@ -30,23 +29,15 @@ sealed class MainForm : Form
         };
     }
 
-    static void Log(string msg)
-    {
-        try { File.AppendAllText(@"C:\Temp\toolbar_diag.txt", $"[{DateTime.Now:HH:mm:ss.fff}] {msg}\r\n"); } catch { }
-    }
-
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
-        Log("OnShown start");
         try
         {
             _toolbar = new ToolbarWindow();
-            Log("ToolbarWindow created OK");
         }
         catch (Exception ex)
         {
-            Log($"ToolbarWindow FAILED: {ex}");
             MessageBox.Show($"ToolbarWindow failed:\n{ex}", "WinToolbarMediaButtons",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }

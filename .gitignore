@@ -1,7 +1,5 @@
 # Build output
-bin/
-obj/
-publish/
+build/
 
 # Visual Studio
 .vs/

@@ -1,9 +1,7 @@
 @echo off
 setlocal
 
-if exist "%~dp0publish" rmdir /s /q "%~dp0publish"
-if exist "%~dp0bin" rmdir /s /q "%~dp0bin"
-if exist "%~dp0obj" rmdir /s /q "%~dp0obj"
+if exist "%~dp0build" rmdir /s /q "%~dp0build"
 
 echo Building...
 echo.
@@ -16,7 +14,7 @@ dotnet publish "%~dp0WinToolbarMediaButtons.csproj" ^
     -p:DebugType=none ^
     -p:PublishSingleFile=true ^
     -p:IncludeNativeLibrariesForSelfExtract=true ^
-    -o "%~dp0publish"
+    -o "%~dp0build\publish"
 
 if %ERRORLEVEL% neq 0 (
     echo.
@@ -25,8 +23,8 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo.
-for %%F in ("%~dp0publish\WinToolbarMediaButtons.exe") do echo Size: %%~zF bytes
+for %%F in ("%~dp0build\publish\WinToolbarMediaButtons.exe") do echo Size: %%~zF bytes
 echo.
-echo Done: %~dp0publish\WinToolbarMediaButtons.exe
+echo Done: %~dp0build\publish\WinToolbarMediaButtons.exe
 echo.
 pause
