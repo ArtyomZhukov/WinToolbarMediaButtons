@@ -14,12 +14,5 @@
     <PublishSingleFile>true</PublishSingleFile>
     <PublishDir>build\publish\</PublishDir>
   </PropertyGroup>
-  <ItemGroup>
-    <!-- WinUI/WinAppSDK files — kept for reference, excluded from WinForms build -->
-    <Compile Remove="App.xaml.cs" />
-    <Compile Remove="MainWindow.xaml.cs" />
-    <Compile Remove="Init.cs" />
-    <None Remove="App.xaml" />
-    <None Remove="MainWindow.xaml" />
-  </ItemGroup>
+
 </Project>
