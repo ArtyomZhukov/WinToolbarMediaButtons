@@ -1,5 +1,7 @@
 # Build output
 build/
+native/.zig-cache/
+native/zig-out/
 
 # Visual Studio
 .vs/
