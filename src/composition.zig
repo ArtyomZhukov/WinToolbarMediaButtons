@@ -2,7 +2,6 @@
 // Vtable offsets match exactly the C# version (ToolbarWindow.cs).
 
 const w   = @import("win32.zig");
-const std = @import("std");
 
 const HRESULT = w.LONG;
 
@@ -34,7 +33,7 @@ var g_delete_string:  ?FnWindowsDeleteString = null;
 
 fn ensureCombase() bool {
     if (g_ro_activate != null) return true;
-    const lib = w.loadLibrary(std.unicode.utf8ToUtf16LeStringLiteral("combase.dll")) orelse return false;
+    const lib = w.loadLibrary(w.L("combase.dll")) orelse return false;
     g_ro_activate   = @ptrCast(w.getProcAddress(lib, "RoActivateInstance"));
     g_create_string = @ptrCast(w.getProcAddress(lib, "WindowsCreateString"));
     g_delete_string = @ptrCast(w.getProcAddress(lib, "WindowsDeleteString"));
@@ -69,7 +68,7 @@ pub fn activateCompositor() ?*anyopaque {
     const deleteStr  = g_delete_string;
     const roActivate = g_ro_activate   orelse return null;
 
-    const class_name = std.unicode.utf8ToUtf16LeStringLiteral("Windows.UI.Composition.Compositor");
+    const class_name = w.L("Windows.UI.Composition.Compositor");
     var hs: ?*anyopaque = null;
     if (createStr(class_name, @intCast(class_name.len), &hs) != 0) return null;
     defer if (deleteStr) |f| { _ = f(hs); };

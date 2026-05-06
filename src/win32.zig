@@ -178,3 +178,46 @@ pub const setTimer         = SetTimer;
 // Special Z-order values for SetWindowPos
 pub const HWND_BOTTOM: HWND = @ptrFromInt(1);
 pub const HWND_TOP:    HWND = @ptrFromInt(0);
+
+// Comptime UTF-8 → UTF-16LE string literal (replaces std.unicode dependency).
+fn countL(comptime s: []const u8) comptime_int {
+    var n: comptime_int = 0;
+    var i: comptime_int = 0;
+    while (i < s.len) {
+        const b = s[i];
+        if (b & 0x80 == 0)       { n += 1; i += 1; }
+        else if (b & 0xE0 == 0xC0) { n += 1; i += 2; }
+        else if (b & 0xF0 == 0xE0) { n += 1; i += 3; }
+        else                       { n += 2; i += 4; }
+    }
+    return n;
+}
+pub fn L(comptime s: []const u8) *const [countL(s):0]u16 {
+    return comptime blk: {
+        const n = countL(s);
+        var buf: [n:0]u16 = undefined;
+        var i: usize = 0;
+        var j: usize = 0;
+        while (i < s.len) {
+            const b = s[i];
+            if (b & 0x80 == 0) {
+                buf[j] = b; i += 1; j += 1;
+            } else if (b & 0xE0 == 0xC0) {
+                buf[j] = (@as(u16, b & 0x1F) << 6) | (s[i+1] & 0x3F);
+                i += 2; j += 1;
+            } else if (b & 0xF0 == 0xE0) {
+                buf[j] = (@as(u16, b & 0x0F) << 12) | (@as(u16, s[i+1] & 0x3F) << 6) | (s[i+2] & 0x3F);
+                i += 3; j += 1;
+            } else {
+                const cp: u32 = (@as(u32, b & 0x07) << 18) | (@as(u32, s[i+1] & 0x3F) << 12) |
+                    (@as(u32, s[i+2] & 0x3F) << 6) | (s[i+3] & 0x3F);
+                buf[j]   = @intCast(0xD800 + ((cp - 0x10000) >> 10));
+                buf[j+1] = @intCast(0xDC00 + ((cp - 0x10000) & 0x3FF));
+                i += 4; j += 2;
+            }
+        }
+        buf[n] = 0;
+        const result = buf;
+        break :blk &result;
+    };
+}

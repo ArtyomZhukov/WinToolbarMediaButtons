@@ -4,8 +4,6 @@
 const w     = @import("win32.zig");
 const comp  = @import("composition.zig");
 const audio = @import("audio.zig");
-const std   = @import("std");
-
 pub const HitZone = enum { none, prev, play, next, slider, vol };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -77,29 +75,29 @@ var fn_d2d1:  ?FnD2D1  = null;
 
 fn loadLibs() bool {
     if (fn_d3d11 != null) return true;
-    const l3 = w.loadLibrary(std.unicode.utf8ToUtf16LeStringLiteral("d3d11.dll")) orelse return false;
-    const l2 = w.loadLibrary(std.unicode.utf8ToUtf16LeStringLiteral("d2d1.dll"))  orelse return false;
+    const l3 = w.loadLibrary(w.L("d3d11.dll")) orelse return false;
+    const l2 = w.loadLibrary(w.L("d2d1.dll"))  orelse return false;
     fn_d3d11 = @ptrCast(w.getProcAddress(l3, "D3D11CreateDevice"));
     fn_d2d1  = @ptrCast(w.getProcAddress(l2, "D2D1CreateFactory"));
     return fn_d3d11 != null and fn_d2d1 != null;
 }
 
 fn initDWrite(phys_h: f32) void {
-    const lib = w.loadLibrary(std.unicode.utf8ToUtf16LeStringLiteral("dwrite.dll")) orelse return;
+    const lib = w.loadLibrary(w.L("dwrite.dll")) orelse return;
     const proc = w.getProcAddress(lib, "DWriteCreateFactory") orelse return;
     const FnCreate = *const fn (i32, *const GUID, *?*anyopaque) callconv(.winapi) w.LONG;
     var raw: ?*anyopaque = null;
     if (@as(FnCreate, @ptrCast(proc))(0, &IID_IDWriteFactory, &raw) != 0) return;
     const factory = raw orelse return;
 
-    const locale  = std.unicode.utf8ToUtf16LeStringLiteral("en-us");
+    const locale  = w.L("en-us");
     const FnFmt   = *const fn (*anyopaque, [*:0]const u16, ?*anyopaque, i32, i32, i32, f32, [*:0]const u16, *?*anyopaque) callconv(.winapi) w.LONG;
     const FnAlign = *const fn (*anyopaque, i32) callconv(.winapi) w.LONG;
 
     // Icon format: Segoe MDL2 Assets, CENTER/CENTER
     var fmt: ?*anyopaque = null;
     if (@as(FnFmt, @ptrCast(vt(factory)[15]))(factory,
-            std.unicode.utf8ToUtf16LeStringLiteral("Segoe MDL2 Assets"),
+            w.L("Segoe MDL2 Assets"),
             null, 400, 0, 5, phys_h * 0.52, locale, &fmt) == 0) {
         const tf = fmt orelse return;
         _ = @as(FnAlign, @ptrCast(vt(tf)[3]))(tf, 2);
@@ -110,7 +108,7 @@ fn initDWrite(phys_h: f32) void {
     // Text format: Segoe UI SemiBold, CENTER/CENTER
     var fmt2: ?*anyopaque = null;
     if (@as(FnFmt, @ptrCast(vt(factory)[15]))(factory,
-            std.unicode.utf8ToUtf16LeStringLiteral("Segoe UI"),
+            w.L("Segoe UI"),
             null, 600, 0, 5, phys_h * 0.30, locale, &fmt2) == 0) {
         const tf2 = fmt2 orelse return;
         _ = @as(FnAlign, @ptrCast(vt(tf2)[3]))(tf2, 2);
@@ -405,9 +403,19 @@ fn drawToolbar(ctx: *anyopaque) void {
         else &ICON_VOL2;
 
     const vol_pct: u32 = @intFromFloat(@max(0.0, @min(100.0, volume * 100.0 + 0.5)));
-    var buf8: [8]u8   = undefined;
-    const s8 = std.fmt.bufPrint(&buf8, "{d}%", .{vol_pct}) catch return;
-    var buf16: [8]u16 = undefined;
+    var buf8: [4]u8 = undefined;
+    const len8: usize = if (vol_pct >= 100) blk: {
+        buf8[0] = '1'; buf8[1] = '0'; buf8[2] = '0'; buf8[3] = '%'; break :blk 4;
+    } else if (vol_pct >= 10) blk: {
+        buf8[0] = @intCast('0' + vol_pct / 10);
+        buf8[1] = @intCast('0' + vol_pct % 10);
+        buf8[2] = '%'; break :blk 3;
+    } else blk: {
+        buf8[0] = @intCast('0' + vol_pct);
+        buf8[1] = '%'; break :blk 2;
+    };
+    const s8 = buf8[0..len8];
+    var buf16: [4]u16 = undefined;
     for (s8, 0..) |c, j| buf16[j] = c;
 
     const icon_w: f32 = B * 0.65;

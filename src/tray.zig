@@ -1,5 +1,4 @@
 const w = @import("win32.zig");
-const std = @import("std");
 
 // Win32 types for tray/menu
 const NOTIFYICONDATAW = extern struct {
@@ -50,7 +49,7 @@ const ico_bytes = @embedFile("res/app.ico");
 
 fn loadEmbeddedIcon() w.HICON {
     if (ico_bytes.len < 6) return null;
-    const count = std.mem.readInt(u16, ico_bytes[4..6], .little);
+    const count: u16 = @as(u16, ico_bytes[4]) | (@as(u16, ico_bytes[5]) << 8);
     if (count == 0) return null;
 
     // Выбираем лучшее изображение: предпочитаем 32x32, иначе берём наибольшее
@@ -63,8 +62,10 @@ fn loadEmbeddedIcon() w.HICON {
         const base = 6 + @as(usize, i) * 16;
         if (base + 16 > ico_bytes.len) break;
         const width        = ico_bytes[base + 0];  // 0 = 256px
-        const bytes_in_res = std.mem.readInt(u32, ico_bytes[base + 8 ..][0..4], .little);
-        const img_offset   = std.mem.readInt(u32, ico_bytes[base + 12..][0..4], .little);
+        const bytes_in_res: u32 = @as(u32, ico_bytes[base+8])  | (@as(u32, ico_bytes[base+9])  << 8) |
+                                  (@as(u32, ico_bytes[base+10]) << 16) | (@as(u32, ico_bytes[base+11]) << 24);
+        const img_offset: u32   = @as(u32, ico_bytes[base+12]) | (@as(u32, ico_bytes[base+13]) << 8) |
+                                  (@as(u32, ico_bytes[base+14]) << 16) | (@as(u32, ico_bytes[base+15]) << 24);
         const score: i32   = if (width == 32) 1000 else @intCast(width);
         if (score > best_score) {
             best_score  = score;
@@ -90,12 +91,12 @@ pub var isAutostartEnabled: *const fn () bool = undefined;
 pub var toggleAutostart:    *const fn () void = undefined;
 pub var quitFn:             *const fn () void = undefined;
 
-var g_nid: NOTIFYICONDATAW = std.mem.zeroes(NOTIFYICONDATAW);
+var g_nid: NOTIFYICONDATAW = undefined;
 var g_hwnd: w.HWND = null;
 
 pub fn create(hwnd: w.HWND) void {
     g_hwnd = hwnd;
-    g_nid = std.mem.zeroes(NOTIFYICONDATAW);
+    @memset(@as(*[@sizeOf(NOTIFYICONDATAW)]u8, @ptrCast(&g_nid)), 0);
     g_nid.cbSize           = @sizeOf(NOTIFYICONDATAW);
     g_nid.hWnd             = hwnd;
     g_nid.uID              = 1;
@@ -104,7 +105,7 @@ pub fn create(hwnd: w.HWND) void {
     g_nid.hIcon            = loadEmbeddedIcon();
 
     // Tip: "Media Buttons"
-    const tip = std.unicode.utf8ToUtf16LeStringLiteral("Media Buttons");
+    const tip = w.L("Media Buttons");
     @memcpy(g_nid.szTip[0..tip.len], tip);
 
     _ = Shell_NotifyIconW(NIM_ADD, &g_nid);
@@ -126,13 +127,13 @@ fn showMenu() void {
     defer _ = DestroyMenu(menu);
 
     const autostart_text = if (isAutostartEnabled())
-        std.unicode.utf8ToUtf16LeStringLiteral("Автозапуск: выключить")
+        w.L("Автозапуск: выключить")
     else
-        std.unicode.utf8ToUtf16LeStringLiteral("Автозапуск: включить");
+        w.L("Автозапуск: включить");
 
     _ = AppendMenuW(menu, MF_STRING, ID_AUTOSTART, autostart_text);
     _ = AppendMenuW(menu, MF_SEPARATOR, 0, null);
-    _ = AppendMenuW(menu, MF_STRING, ID_EXIT, std.unicode.utf8ToUtf16LeStringLiteral("Выход"));
+    _ = AppendMenuW(menu, MF_STRING, ID_EXIT, w.L("Выход"));
 
     var pt: w.POINT = undefined;
     _ = w.getCursorPos(&pt);

@@ -6,7 +6,6 @@
 
 const w    = @import("win32.zig");
 const comp = @import("composition.zig");
-const std  = @import("std");
 
 const GUID    = comp.GUID;
 const HRESULT = w.LONG;
@@ -37,7 +36,7 @@ pub fn init() void {
     if (g_init_done) return;
     g_init_done = true;
 
-    const lib = w.loadLibrary(std.unicode.utf8ToUtf16LeStringLiteral("combase.dll")) orelse return;
+    const lib = w.loadLibrary(w.L("combase.dll")) orelse return;
     const p_init    = w.getProcAddress(lib, "RoInitialize")          orelse return;
     const p_mkstr   = w.getProcAddress(lib, "WindowsCreateString")    orelse return;
     const p_delstr  = w.getProcAddress(lib, "WindowsDeleteString")    orelse return;
@@ -45,7 +44,7 @@ pub fn init() void {
 
     _ = @as(*const fn (i32) callconv(.winapi) HRESULT, @ptrCast(p_init))(0);
 
-    const cname = std.unicode.utf8ToUtf16LeStringLiteral(
+    const cname = w.L(
         "Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager");
     var hs: ?*anyopaque = null;
     if (@as(*const fn ([*]const u16, u32, *?*anyopaque) callconv(.winapi) HRESULT,

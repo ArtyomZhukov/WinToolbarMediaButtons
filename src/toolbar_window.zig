@@ -4,8 +4,6 @@ const comp  = @import("composition.zig");
 const rend  = @import("renderer.zig");
 const audio = @import("audio.zig");
 const smtc  = @import("smtc.zig");
-const std   = @import("std");
-
 // Toolbar dimensions (logical pixels, same as C# version)
 pub const TOOLBAR_H : w.INT = 40;
 pub const BTN_W     : w.INT = 40;
@@ -15,7 +13,7 @@ pub const SLIDER_W  : w.INT = 120;
 pub const VOL_BTN_W : w.INT = 32;
 pub const TOOLBAR_W : w.INT = BTN_W * BTN_COUNT + SEP_W + SLIDER_W + VOL_BTN_W;
 
-const CLASS_NAME = std.unicode.utf8ToUtf16LeStringLiteral("WinToolbarMediaButtons");
+const CLASS_NAME = w.L("WinToolbarMediaButtons");
 
 var g_hwnd      : w.HWND     = null;
 var g_compositor: ?*anyopaque = null;
@@ -70,7 +68,7 @@ const DispatcherQueueOptions = extern struct {
 
 fn tryCreateDispatcherQueue() void {
     const Fn = *const fn (DispatcherQueueOptions, *?*anyopaque) callconv(.winapi) w.LONG;
-    const lib = w.loadLibrary(std.unicode.utf8ToUtf16LeStringLiteral("CoreMessaging.dll")) orelse return;
+    const lib = w.loadLibrary(w.L("CoreMessaging.dll")) orelse return;
     const f = w.getProcAddress(lib, "CreateDispatcherQueueController") orelse return;
     var dqc: ?*anyopaque = null;
     _ = @as(Fn, @ptrCast(f))(.{
@@ -103,7 +101,7 @@ pub fn create(hinstance: w.HINSTANCE) !w.HWND {
     _ = w.registerClass(&wc);
 
     // Find taskbar
-    const taskbar = w.findWindow(std.unicode.utf8ToUtf16LeStringLiteral("Shell_TrayWnd"), null);
+    const taskbar = w.findWindow(w.L("Shell_TrayWnd"), null);
     if (taskbar == null) return error.NoTaskbar;
 
     // Compute DPI-aware layout before creating the window
@@ -134,7 +132,7 @@ pub fn create(hinstance: w.HINSTANCE) !w.HWND {
     const hwnd = w.createWindow(
         w.WS_EX_TOOLWINDOW | w.WS_EX_NOACTIVATE,
         CLASS_NAME,
-        std.unicode.utf8ToUtf16LeStringLiteral(""),
+        w.L(""),
         w.WS_POPUP | w.WS_VISIBLE | w.WS_CLIPCHILDREN | w.WS_CLIPSIBLINGS,
         taskbar_rect.left,
         taskbar_rect.top,
