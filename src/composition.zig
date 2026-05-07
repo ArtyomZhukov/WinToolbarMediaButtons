@@ -22,19 +22,6 @@ pub const IID_ICompositionTarget    = GUID{ .d1=0xA1BEA8BA,.d2=0xD726,.d3=0x4663
 // ── combase dynamic loading ───────────────────────────────────────────────────
 // combase.lib is not in Zig's bundled Windows SDK, so we load at runtime.
 
-const FnRoActivateInstance  = *const fn (?*anyopaque, *?*anyopaque) callconv(.winapi) HRESULT;
-const FnWindowsCreateString = *const fn ([*]const u16, u32, *?*anyopaque) callconv(.winapi) HRESULT;
-
-var g_ro_activate:   ?FnRoActivateInstance  = null;
-var g_create_string: ?FnWindowsCreateString = null;
-
-fn ensureCombase() bool {
-    if (g_ro_activate != null) return true;
-    const lib = w.loadLibrary("combase.dll") orelse return false;
-    g_ro_activate   = @ptrCast(w.getProcAddress(lib, "RoActivateInstance"));
-    g_create_string = @ptrCast(w.getProcAddress(lib, "WindowsCreateString"));
-    return g_ro_activate != null and g_create_string != null;
-}
 
 // ── vtable helpers ────────────────────────────────────────────────────────────
 
@@ -59,21 +46,21 @@ pub fn release(obj: *anyopaque) void {
 // ── Activation ───────────────────────────────────────────────────────────────
 
 pub fn activateCompositor() ?*anyopaque {
-    if (!ensureCombase()) return null;
-    const createStr  = g_create_string orelse return null;
-    const roActivate = g_ro_activate   orelse return null;
+    const lib = w.loadLibrary("combase.dll") orelse return null;
+    const FnRoAct = *const fn (?*anyopaque, *?*anyopaque) callconv(.winapi) HRESULT;
+    const FnMkStr = *const fn ([*]const u16, u32, *?*anyopaque) callconv(.winapi) HRESULT;
+    const roActivate: FnRoAct = @ptrCast(w.getProcAddress(lib, "RoActivateInstance")  orelse return null);
+    const createStr:  FnMkStr = @ptrCast(w.getProcAddress(lib, "WindowsCreateString") orelse return null);
 
     const class_name = w.L("Windows.UI.Composition.Compositor");
     var hs: ?*anyopaque = null;
     if (createStr(class_name, @intCast(class_name.len), &hs) != 0) return null;
 
-    // RoActivateInstance gives an IInspectable* with refcount=1
     var raw: ?*anyopaque = null;
     if (roActivate(hs, &raw) != 0) return null;
     const raw_nn = raw orelse return null;
     defer release(raw_nn);
 
-    // Return ICompositor* so vtable offsets [22]/[24] are correct
     return qi(raw_nn, &IID_ICompositor);
 }
 

@@ -34,8 +34,6 @@ const ICON_PAUSE = [1]u16{0xE103};
 const ICON_NEXT  = [1]u16{0xE893};
 const ICON_VOL   = [1]u16{0xE767};
 const ICON_MUTE  = [1]u16{0xE74F};
-const ICON_VOL0  = [1]u16{0xE992};
-const ICON_VOL1  = [1]u16{0xE993};
 
 // ── Structs ───────────────────────────────────────────────────────────────────
 
@@ -103,16 +101,6 @@ fn initDWrite(phys_h: f32) void {
         g_dw_fmt = tf;
     }
 
-    // Text format: Segoe UI SemiBold, CENTER/CENTER
-    var fmt2: ?*anyopaque = null;
-    if (@as(FnFmt, @ptrCast(vt(factory)[15]))(factory,
-            w.L("Segoe UI"),
-            null, 600, 0, 5, phys_h * 0.30, locale, &fmt2) == 0) {
-        const tf2 = fmt2 orelse return;
-        _ = @as(FnAlign, @ptrCast(vt(tf2)[3]))(tf2, 2);
-        _ = @as(FnAlign, @ptrCast(vt(tf2)[4]))(tf2, 2);
-        g_txt_fmt = tf2;
-    }
 }
 
 const vt  = comp.vtbl;
@@ -128,8 +116,7 @@ var g_btn     : u32 = 0;
 var g_gap     : u32 = 2;
 var g_ml      : u32 = 0;
 var g_hover   : HitZone = .none;
-var g_dw_fmt  : ?*anyopaque = null;   // IDWriteTextFormat* for icons
-var g_txt_fmt : ?*anyopaque = null;   // IDWriteTextFormat* for percentage text
+var g_dw_fmt  : ?*anyopaque = null;
 var g_playing : bool = false;
 
 pub fn setHover(z: HitZone) bool {
@@ -228,11 +215,6 @@ fn createBrush(ctx: *anyopaque, color: ColorF) ?*anyopaque {
     return out;
 }
 
-pub fn fillRect(ctx: *anyopaque, r: RectF, brush: *anyopaque) void {
-    @as(*const fn (*anyopaque, *const RectF, *anyopaque) callconv(.winapi) void,
-        @ptrCast(vt(ctx)[17]))(ctx, &r, brush);
-}
-
 pub fn fillRoundedRect(ctx: *anyopaque, rr: RoundedRect, brush: *anyopaque) void {
     @as(*const fn (*anyopaque, *const RoundedRect, *anyopaque) callconv(.winapi) void,
         @ptrCast(vt(ctx)[19]))(ctx, &rr, brush);
@@ -292,7 +274,7 @@ fn drawToolbar(ctx: *anyopaque) void {
 
     const btn_n  = createBrush(ctx, .{ .r=0.07, .g=0.07, .b=0.07, .a=0.07 }) orelse return;
     defer rel(btn_n);
-    const btn_hv = createBrush(ctx, .{ .r=0.18, .g=0.18, .b=0.18, .a=0.18 }) orelse return;
+    const btn_hv = createBrush(ctx, .{ .r=0.36, .g=0.36, .b=0.36, .a=0.36 }) orelse return;
     defer rel(btn_hv);
     const icon_br = createBrush(ctx, .{ .r=0.85, .g=0.85, .b=0.85, .a=0.85 }) orelse return;
     defer rel(icon_br);
@@ -324,7 +306,7 @@ fn drawToolbar(ctx: *anyopaque) void {
     // Slider background (4B wide, starts right after the three buttons)
     const sld_n  = createBrush(ctx, .{ .r=0.019, .g=0.019, .b=0.019, .a=0.137 }) orelse return;
     defer rel(sld_n);
-    const sld_hv = createBrush(ctx, .{ .r=0.033, .g=0.033, .b=0.033, .a=0.18  }) orelse return;
+    const sld_hv = createBrush(ctx, .{ .r=0.132, .g=0.132, .b=0.132, .a=0.72  }) orelse return;
     defer rel(sld_hv);
     const sld_x0   = ml + 3.0 * B;
     const sld_slot = RectF{ .left=sld_x0+g, .top=vy+g, .right=sld_x0+4.0*B-g, .bottom=vy+B-g };
@@ -334,44 +316,12 @@ fn drawToolbar(ctx: *anyopaque) void {
     // Volume fill bar
     if (volume > 0.005) {
         const fill_w  = (sld_slot.right - sld_slot.left) * volume;
-        const fill_br = createBrush(ctx, .{ .r=0.30, .g=0.30, .b=0.30, .a=0.30 }) orelse return;
+        const fill_br = createBrush(ctx, .{ .r=0.60, .g=0.60, .b=0.60, .a=0.60 }) orelse return;
         defer rel(fill_br);
         fillRoundedRect(ctx, .{ .rect=.{ .left=sld_slot.left, .top=sld_slot.top,
                          .right=sld_slot.left+fill_w, .bottom=sld_slot.bottom },
                          .radiusX=radius, .radiusY=radius }, fill_br);
     }
-
-    // Slider: icon + "N%" text side by side, centered as a block
-    const vol_icon: []const u16 = if (is_muted) &ICON_MUTE
-        else if (volume < 0.33) &ICON_VOL0
-        else if (volume < 0.67) &ICON_VOL1
-        else &ICON_VOL;
-
-    const vol_pct: u32 = @intFromFloat(@max(0.0, @min(100.0, volume * 100.0 + 0.5)));
-    var buf8: [4]u8 = undefined;
-    const len8: usize = if (vol_pct >= 100) blk: {
-        buf8[0] = '1'; buf8[1] = '0'; buf8[2] = '0'; buf8[3] = '%'; break :blk 4;
-    } else if (vol_pct >= 10) blk: {
-        buf8[0] = @intCast('0' + vol_pct / 10);
-        buf8[1] = @intCast('0' + vol_pct % 10);
-        buf8[2] = '%'; break :blk 3;
-    } else blk: {
-        buf8[0] = @intCast('0' + vol_pct);
-        buf8[1] = '%'; break :blk 2;
-    };
-    const s8 = buf8[0..len8];
-    var buf16: [4]u16 = undefined;
-    for (s8, 0..) |c, j| buf16[j] = c;
-
-    const icon_w: f32 = B * 0.65;
-    const text_w: f32 = B * 0.95;
-    const blk_x       = (sld_slot.left + sld_slot.right) * 0.5 - (icon_w + text_w) * 0.5;
-    drawGlyph(ctx, vol_icon,
-        .{ .left=blk_x, .top=sld_slot.top, .right=blk_x+icon_w, .bottom=sld_slot.bottom },
-        icon_br, g_dw_fmt);
-    drawGlyph(ctx, buf16[0..s8.len],
-        .{ .left=blk_x+icon_w, .top=sld_slot.top, .right=blk_x+icon_w+text_w, .bottom=sld_slot.bottom },
-        icon_br, g_txt_fmt);
 
     // Volume button — red when muted
     const vol_red: ?*anyopaque = if (is_muted)
