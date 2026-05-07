@@ -27,7 +27,7 @@ if not exist "%~dp0zig-out\bin" mkdir "%~dp0zig-out\bin"
 
 echo [2/2] Linking with Crinkler...
 "%CRINKLER%" /SUBSYSTEM:WINDOWS /ENTRY:wWinMainCRTStartup ^
-  /HASHTRIES:1000 /ORDERTRIES:30000 /COMPMODE:SLOW ^
+  /HASHTRIES:1000 /ORDERTRIES:30000 /COMPMODE:SLOW /UNALIGNCODE ^
   /OUT:"%OUT%" ^
   "%KERNEL32_LIB%" ^
   WinToolbarMediaButtons_x86.obj

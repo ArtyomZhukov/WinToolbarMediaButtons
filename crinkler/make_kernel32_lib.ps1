@@ -36,7 +36,6 @@ $entries = @(
     @("USER32.DLL",   "_MessageBoxA@16"),
     @("USER32.DLL",   "_SetProcessDpiAwarenessContext@4"),
     @("USER32.DLL",   "_GetMessageW@16"),
-    @("USER32.DLL",   "_TranslateMessage@4"),
     @("USER32.DLL",   "_DispatchMessageW@4"),
     @("USER32.DLL",   "_PostQuitMessage@4"),
     @("USER32.DLL",   "_DefWindowProcW@16"),

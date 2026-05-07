@@ -124,7 +124,6 @@ pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: HANDLE =
 // user32 — static imports
 extern "user32" fn SetProcessDpiAwarenessContext(HANDLE) callconv(.winapi) BOOL;
 extern "user32" fn GetMessageW(*MSG, HWND, UINT, UINT) callconv(.winapi) BOOL;
-extern "user32" fn TranslateMessage(*const MSG) callconv(.winapi) BOOL;
 extern "user32" fn DispatchMessageW(*const MSG) callconv(.winapi) LRESULT;
 extern "user32" fn PostQuitMessage(INT) callconv(.winapi) void;
 extern "user32" fn DefWindowProcW(HWND, UINT, WPARAM, LPARAM) callconv(.winapi) LRESULT;
@@ -153,7 +152,6 @@ pub extern "user32" fn SetForegroundWindow(HWND) callconv(.winapi) BOOL;
 
 pub const setDpiAwareness = SetProcessDpiAwarenessContext;
 pub const getMsg          = GetMessageW;
-pub const translate       = TranslateMessage;
 pub const dispatch        = DispatchMessageW;
 pub const postQuit        = PostQuitMessage;
 pub const defWndProc      = DefWindowProcW;

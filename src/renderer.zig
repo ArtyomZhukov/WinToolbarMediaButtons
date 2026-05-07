@@ -66,30 +66,6 @@ const FnD3D11 = *const fn (?*anyopaque, i32, ?*anyopaque, u32, ?*anyopaque, u32,
 const FnD2D1  = *const fn (i32, *const GUID, ?*anyopaque, *?*anyopaque) callconv(.winapi) w.LONG;
 
 
-fn initDWrite(phys_h: f32) void {
-    const lib = w.loadLibrary("dwrite.dll") orelse return;
-    const proc = w.getProcAddress(lib, "DWriteCreateFactory") orelse return;
-    const FnCreate = *const fn (i32, *const GUID, *?*anyopaque) callconv(.winapi) w.LONG;
-    var raw: ?*anyopaque = null;
-    if (@as(FnCreate, @ptrCast(proc))(0, &IID_IDWriteFactory, &raw) != 0) return;
-    const factory = raw orelse return;
-
-    const locale  = w.L("en-us");
-    const FnFmt   = *const fn (*anyopaque, [*:0]const u16, ?*anyopaque, i32, i32, i32, f32, [*:0]const u16, *?*anyopaque) callconv(.winapi) w.LONG;
-    const FnAlign = *const fn (*anyopaque, i32) callconv(.winapi) w.LONG;
-
-    // Icon format: Segoe MDL2 Assets, CENTER/CENTER
-    var fmt: ?*anyopaque = null;
-    if (@as(FnFmt, @ptrCast(vt(factory)[15]))(factory,
-            w.L("Segoe MDL2 Assets"),
-            null, 400, 0, 5, phys_h * 0.52, locale, &fmt) == 0) {
-        const tf = fmt orelse return;
-        _ = @as(FnAlign, @ptrCast(vt(tf)[3]))(tf, 2);
-        _ = @as(FnAlign, @ptrCast(vt(tf)[4]))(tf, 2);
-        g_dw_fmt = tf;
-    }
-
-}
 
 const vt  = comp.vtbl;
 const qi  = comp.qi;
@@ -196,7 +172,25 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
     g_br_n    = createBrush(d2d_ctx, .{ .r=0.07, .g=0.07, .b=0.07, .a=0.07 });
     g_br_hv   = createBrush(d2d_ctx, .{ .r=0.36, .g=0.36, .b=0.36, .a=0.36 });
     g_br_icon = createBrush(d2d_ctx, .{ .r=0.85, .g=0.85, .b=0.85, .a=0.85 });
-    initDWrite(@floatFromInt(btn_size));
+    dwrite: {
+        const dw_lib  = w.loadLibrary("dwrite.dll") orelse break :dwrite;
+        const dw_proc = w.getProcAddress(dw_lib, "DWriteCreateFactory") orelse break :dwrite;
+        const FnCreate = *const fn (i32, *const GUID, *?*anyopaque) callconv(.winapi) w.LONG;
+        var dw_raw: ?*anyopaque = null;
+        if (@as(FnCreate, @ptrCast(dw_proc))(0, &IID_IDWriteFactory, &dw_raw) != 0) break :dwrite;
+        const factory = dw_raw orelse break :dwrite;
+        const FnFmt   = *const fn (*anyopaque, [*:0]const u16, ?*anyopaque, i32, i32, i32, f32, [*:0]const u16, *?*anyopaque) callconv(.winapi) w.LONG;
+        const FnAlign = *const fn (*anyopaque, i32) callconv(.winapi) w.LONG;
+        var dw_fmt: ?*anyopaque = null;
+        if (@as(FnFmt, @ptrCast(vt(factory)[15]))(factory,
+                w.L("Segoe MDL2 Assets"), null, 400, 0, 5,
+                @as(f32, @floatFromInt(btn_size)) * 0.52, w.L(""), &dw_fmt) == 0) {
+            const tf = dw_fmt orelse break :dwrite;
+            _ = @as(FnAlign, @ptrCast(vt(tf)[3]))(tf, 2);
+            _ = @as(FnAlign, @ptrCast(vt(tf)[4]))(tf, 2);
+            g_dw_fmt = tf;
+        }
+    }
 }
 
 // ── D2D1 draw helpers ─────────────────────────────────────────────────────────
