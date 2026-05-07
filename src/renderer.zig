@@ -156,13 +156,31 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
             @ptrCast(vt(factory2)[24]))(factory2, dxgi_dev, &desc, null, &sc) != 0) w.exit(1);
     const swap_chain = sc orelse w.exit(1);
 
-    const csurf = comp.createCompositionSurfaceForSwapChain(compositor, swap_chain) orelse w.exit(1);
-    defer comp.release(csurf);
+    const ci = qi(compositor, &comp.IID_ICompositorInterop) orelse w.exit(1);
+    defer rel(ci);
+    var csurf_raw: ?*anyopaque = null;
+    if (@as(*const fn (*anyopaque, *anyopaque, *?*anyopaque) callconv(.winapi) w.LONG,
+            @ptrCast(vt(ci)[4]))(ci, swap_chain, &csurf_raw) != 0) w.exit(1);
+    const csurf = csurf_raw orelse w.exit(1);
+    defer rel(csurf);
 
-    const brush = comp.createSurfaceBrush(compositor, csurf) orelse w.exit(1);
-    comp.surfaceBrushSetStretch(brush);
-    comp.spriteSetBrush(root_vis, brush);
-    comp.release(brush);
+    var brush_raw: ?*anyopaque = null;
+    if (@as(*const fn (*anyopaque, *anyopaque, *?*anyopaque) callconv(.winapi) w.LONG,
+            @ptrCast(vt(compositor)[24]))(compositor, csurf, &brush_raw) != 0) w.exit(1);
+    const brush = brush_raw orelse w.exit(1);
+    defer rel(brush);
+
+    if (qi(brush, &comp.IID_ICompositionSurfaceBrush)) |sb| {
+        defer rel(sb);
+        _ = @as(*const fn (*anyopaque, w.INT) callconv(.winapi) w.LONG, @ptrCast(vt(sb)[11]))(sb, 2);
+    }
+    if (qi(root_vis, &comp.IID_ISpriteVisual)) |sv| {
+        defer rel(sv);
+        if (qi(brush, &comp.IID_IInspectable)) |bi| {
+            defer rel(bi);
+            _ = @as(*const fn (*anyopaque, *anyopaque) callconv(.winapi) w.LONG, @ptrCast(vt(sv)[7]))(sv, bi);
+        }
+    }
 
     g_sc     = swap_chain;
     g_ctx    = d2d_ctx;
@@ -207,8 +225,8 @@ pub fn fillRoundedRect(ctx: *anyopaque, rr: RoundedRect, brush: *anyopaque) void
         @ptrCast(vt(ctx)[19]))(ctx, &rr, brush);
 }
 
-fn drawGlyph(ctx: *anyopaque, text: []const u16, rect: RectF, brush: *anyopaque, fmt: ?*anyopaque) void {
-    const f = fmt orelse return;
+fn drawGlyph(ctx: *anyopaque, text: []const u16, rect: RectF, brush: *anyopaque) void {
+    const f = g_dw_fmt orelse return;
     const Fn = *const fn (*anyopaque, [*]const u16, u32, *anyopaque, *const RectF, *anyopaque, u32, i32) callconv(.winapi) void;
     @as(Fn, @ptrCast(vt(ctx)[27]))(ctx, text.ptr, @intCast(text.len), f, &rect, brush, 0, 0);
 }
@@ -284,7 +302,7 @@ fn drawToolbar(ctx: *anyopaque) void {
             .next  => &ICON_NEXT,
             else   => unreachable,
         };
-        drawGlyph(ctx, icon, slot, icon_br, g_dw_fmt);
+        drawGlyph(ctx, icon, slot, icon_br);
     }
 
     // Slider background (4B wide, starts right after the three buttons)
@@ -313,5 +331,5 @@ fn drawToolbar(ctx: *anyopaque) void {
     const vol_bg: *anyopaque = if (vol_red != null) vol_red.?
         else if (g_hover == .vol) btn_hv else btn_n;
     fillRoundedRect(ctx, .{ .rect=vol_slot, .radiusX=radius, .radiusY=radius }, vol_bg);
-    drawGlyph(ctx, if (is_muted) &ICON_MUTE else &ICON_VOL, vol_slot, icon_br, g_dw_fmt);
+    drawGlyph(ctx, if (is_muted) &ICON_MUTE else &ICON_VOL, vol_slot, icon_br);
 }

@@ -3,6 +3,10 @@ const comp = @import("composition.zig");
 const rend = @import("renderer.zig");
 const audio = @import("audio.zig");
 
+const vt  = comp.vtbl;
+const qi  = comp.qi;
+const rel = comp.release;
+
 const CLASS_NAME = w.L("WTMB");
 
 var g_btn_size  : w.INT = 32;
@@ -103,11 +107,50 @@ pub fn create(hinstance: w.HINSTANCE) void {
     );
     if (hwnd == null) w.exit(1);
 
-    const compositor = comp.activateCompositor() orelse w.exit(1);
-    const target = comp.createDesktopWindowTarget(compositor, hwnd, 1) orelse w.exit(1);
-    const spr = comp.createSpriteVisual(compositor) orelse w.exit(1);
-    comp.vis2SetRelativeSize(spr);
-    comp.targetSetRoot(target, spr);
+    const compositor = blk: {
+        const cb_lib = w.loadLibrary("combase.dll") orelse w.exit(1);
+        const FnRoAct = *const fn (?*anyopaque, *?*anyopaque) callconv(.winapi) w.LONG;
+        const FnMkStr = *const fn ([*]const u16, u32, *?*anyopaque) callconv(.winapi) w.LONG;
+        const roActivate: FnRoAct = @ptrCast(w.getProcAddress(cb_lib, "RoActivateInstance") orelse w.exit(1));
+        const createStr:  FnMkStr = @ptrCast(w.getProcAddress(cb_lib, "WindowsCreateString") orelse w.exit(1));
+        const class_name = w.L("Windows.UI.Composition.Compositor");
+        var hs: ?*anyopaque = null;
+        if (createStr(class_name, @intCast(class_name.len), &hs) != 0) w.exit(1);
+        var raw: ?*anyopaque = null;
+        if (roActivate(hs, &raw) != 0) w.exit(1);
+        const raw_nn = raw orelse w.exit(1);
+        defer rel(raw_nn);
+        break :blk qi(raw_nn, &comp.IID_ICompositor) orelse w.exit(1);
+    };
+
+    const target = blk: {
+        const interop = qi(compositor, &comp.IID_ICompositorDesktopInterop) orelse w.exit(1);
+        defer rel(interop);
+        var t: ?*anyopaque = null;
+        if (@as(*const fn (*anyopaque, w.HWND, w.BOOL, *?*anyopaque) callconv(.winapi) w.LONG,
+                @ptrCast(vt(interop)[3]))(interop, hwnd, 1, &t) != 0) w.exit(1);
+        break :blk t orelse w.exit(1);
+    };
+
+    var spr_raw: ?*anyopaque = null;
+    if (@as(*const fn (*anyopaque, *?*anyopaque) callconv(.winapi) w.LONG,
+            @ptrCast(vt(compositor)[22]))(compositor, &spr_raw) != 0) w.exit(1);
+    const spr = spr_raw orelse w.exit(1);
+
+    if (qi(spr, &comp.IID_IVisual2)) |vis2| {
+        defer rel(vis2);
+        const Vector2 = extern struct { x: f32, y: f32 };
+        _ = @as(*const fn (*anyopaque, Vector2) callconv(.winapi) w.LONG,
+            @ptrCast(vt(vis2)[11]))(vis2, .{ .x = 1.0, .y = 1.0 });
+    }
+    if (qi(target, &comp.IID_ICompositionTarget)) |tgt| {
+        defer rel(tgt);
+        if (qi(spr, &comp.IID_IVisual)) |vis| {
+            defer rel(vis);
+            _ = @as(*const fn (*anyopaque, *anyopaque) callconv(.winapi) w.LONG,
+                @ptrCast(vt(tgt)[7]))(tgt, vis);
+        }
+    }
 
     _ = w.setParent(hwnd, taskbar);
     const style_u: w.DWORD = @bitCast(w.getWindowLong(hwnd, w.GWL_STYLE));
