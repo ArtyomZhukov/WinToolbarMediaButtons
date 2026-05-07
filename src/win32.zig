@@ -87,7 +87,7 @@ pub const WNDCLASSEXW = extern struct {
 // ── kernel32 ──────────────────────────────────────────────────────────────────
 extern "kernel32" fn ExitProcess(UINT) callconv(.winapi) noreturn;
 extern "kernel32" fn GetModuleHandleW(?[*:0]const WCHAR) callconv(.winapi) HMODULE;
-extern "kernel32" fn LoadLibraryW([*:0]const WCHAR) callconv(.winapi) HMODULE;
+extern "kernel32" fn LoadLibraryA([*:0]const u8) callconv(.winapi) HMODULE;
 extern "kernel32" fn GetProcAddress(HMODULE, [*:0]const u8) callconv(.winapi) ?*anyopaque;
 extern "kernel32" fn GetModuleFileNameW(HMODULE, [*]WCHAR, DWORD) callconv(.winapi) DWORD;
 
@@ -117,7 +117,7 @@ pub const VK_MEDIA_PLAY_PAUSE : UINT  = 0xB3;
 // kernel32 (static)
 pub const exit              = ExitProcess;
 pub const getModuleHandle   = GetModuleHandleW;
-pub const loadLibrary       = LoadLibraryW;
+pub const loadLibrary       = LoadLibraryA;
 pub const getProcAddress    = GetProcAddress;
 pub const getModuleFileName = GetModuleFileNameW;
 
@@ -133,7 +133,7 @@ pub var dispatch        : *const fn (*const MSG)                                
 pub var postQuit        : *const fn (INT)                                                                                       callconv(.winapi) void    = undefined;
 pub var defWndProc      : *const fn (HWND, UINT, WPARAM, LPARAM)                                                               callconv(.winapi) LRESULT = undefined;
 pub var registerClass   : *const fn (*const WNDCLASSEXW)                                                                       callconv(.winapi) ATOM    = undefined;
-pub var createWindow    : *const fn (DWORD, [*:0]const WCHAR, [*:0]const WCHAR, DWORD, INT, INT, INT, INT, HWND, HMENU, HINSTANCE, ?*anyopaque) callconv(.winapi) HWND = undefined;
+pub var createWindow    : *const fn (DWORD, [*:0]const WCHAR, ?[*:0]const WCHAR, DWORD, INT, INT, INT, INT, HWND, HMENU, HINSTANCE, ?*anyopaque) callconv(.winapi) HWND = undefined;
 pub var findWindow      : *const fn ([*:0]const WCHAR, ?[*:0]const WCHAR)                                                     callconv(.winapi) HWND    = undefined;
 pub var setWindowPos    : *const fn (HWND, HWND, INT, INT, INT, INT, UINT)                                                    callconv(.winapi) BOOL    = undefined;
 pub var getWindowRect   : *const fn (HWND, *RECT)                                                                             callconv(.winapi) BOOL    = undefined;
@@ -152,15 +152,15 @@ pub var releaseCapture  : *const fn ()                                          
 pub var setTimer        : *const fn (HWND, usize, UINT, ?*anyopaque)                                                        callconv(.winapi) usize   = undefined;
 pub var Shell_NotifyIconW        : *const fn (DWORD, *anyopaque)                                                            callconv(.winapi) BOOL    = undefined;
 pub var CreatePopupMenu          : *const fn ()                                                                             callconv(.winapi) HMENU   = undefined;
-pub var AppendMenuW              : *const fn (HMENU, UINT, usize, ?[*:0]const WCHAR)                                       callconv(.winapi) BOOL    = undefined;
+pub var AppendMenuA              : *const fn (HMENU, UINT, usize, ?[*:0]const u8)                                          callconv(.winapi) BOOL    = undefined;
 pub var TrackPopupMenu           : *const fn (HMENU, UINT, INT, INT, INT, HWND, ?*anyopaque)                               callconv(.winapi) BOOL    = undefined;
 pub var DestroyMenu              : *const fn (HMENU)                                                                       callconv(.winapi) BOOL    = undefined;
 pub var SetForegroundWindow      : *const fn (HWND)                                                                        callconv(.winapi) BOOL    = undefined;
 pub var CreateIconFromResourceEx : *const fn (?[*]const u8, DWORD, BOOL, DWORD, INT, INT, UINT) callconv(.winapi) HICON   = undefined;
 
 pub fn initWin32() void {
-    const huser32  = LoadLibraryW(L("user32.dll"))  orelse return;
-    const hshell32 = LoadLibraryW(L("shell32.dll")) orelse return;
+    const huser32  = LoadLibraryA("user32.dll")  orelse return;
+    const hshell32 = LoadLibraryA("shell32.dll") orelse return;
     setDpiAwareness  = @ptrCast(GetProcAddress(huser32, "SetProcessDpiAwarenessContext").?);
     getMsg           = @ptrCast(GetProcAddress(huser32, "GetMessageW").?);
     translate        = @ptrCast(GetProcAddress(huser32, "TranslateMessage").?);
@@ -186,13 +186,13 @@ pub fn initWin32() void {
     releaseCapture   = @ptrCast(GetProcAddress(huser32, "ReleaseCapture").?);
     setTimer         = @ptrCast(GetProcAddress(huser32, "SetTimer").?);
     CreatePopupMenu         = @ptrCast(GetProcAddress(huser32, "CreatePopupMenu").?);
-    AppendMenuW             = @ptrCast(GetProcAddress(huser32, "AppendMenuW").?);
+    AppendMenuA             = @ptrCast(GetProcAddress(huser32, "AppendMenuA").?);
     TrackPopupMenu          = @ptrCast(GetProcAddress(huser32, "TrackPopupMenu").?);
     DestroyMenu             = @ptrCast(GetProcAddress(huser32, "DestroyMenu").?);
     SetForegroundWindow     = @ptrCast(GetProcAddress(huser32, "SetForegroundWindow").?);
     CreateIconFromResourceEx = @ptrCast(GetProcAddress(huser32, "CreateIconFromResourceEx").?);
     Shell_NotifyIconW        = @ptrCast(GetProcAddress(hshell32, "Shell_NotifyIconW").?);
-    const hadvapi32 = LoadLibraryW(L("advapi32.dll")) orelse return;
+    const hadvapi32 = LoadLibraryA("advapi32.dll") orelse return;
     RegOpenKeyExW    = @ptrCast(GetProcAddress(hadvapi32, "RegOpenKeyExW").?);
     RegQueryValueExW = @ptrCast(GetProcAddress(hadvapi32, "RegQueryValueExW").?);
     RegSetValueExW   = @ptrCast(GetProcAddress(hadvapi32, "RegSetValueExW").?);

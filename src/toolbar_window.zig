@@ -13,7 +13,7 @@ pub const SLIDER_W  : w.INT = 120;
 pub const VOL_BTN_W : w.INT = 32;
 pub const TOOLBAR_W : w.INT = BTN_W * BTN_COUNT + SEP_W + SLIDER_W + VOL_BTN_W;
 
-const CLASS_NAME = w.L("WinToolbarMediaButtons");
+const CLASS_NAME = w.L("WTMB");
 
 var g_hwnd      : w.HWND     = null;
 var g_compositor: ?*anyopaque = null;
@@ -70,7 +70,7 @@ const DispatcherQueueOptions = extern struct {
 
 fn tryCreateDispatcherQueue() void {
     const Fn = *const fn (DispatcherQueueOptions, *?*anyopaque) callconv(.winapi) w.LONG;
-    const lib = w.loadLibrary(w.L("CoreMessaging.dll")) orelse return;
+    const lib = w.loadLibrary("CoreMessaging.dll") orelse return;
     const f = w.getProcAddress(lib, "CreateDispatcherQueueController") orelse return;
     var dqc: ?*anyopaque = null;
     _ = @as(Fn, @ptrCast(f))(.{
@@ -134,7 +134,7 @@ pub fn create(hinstance: w.HINSTANCE) !w.HWND {
     const hwnd = w.createWindow(
         w.WS_EX_TOOLWINDOW | w.WS_EX_NOACTIVATE,
         CLASS_NAME,
-        w.L(""),
+        null,
         w.WS_POPUP | w.WS_VISIBLE | w.WS_CLIPCHILDREN | w.WS_CLIPSIBLINGS,
         taskbar_rect.left,
         taskbar_rect.top,

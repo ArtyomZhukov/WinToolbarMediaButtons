@@ -32,7 +32,7 @@ pub fn init() void {
     if (g_init_done) return;
     g_init_done = true;
 
-    const lib = w.loadLibrary(w.L("combase.dll")) orelse return;
+    const lib = w.loadLibrary("combase.dll") orelse return;
     const p_init    = w.getProcAddress(lib, "RoInitialize")          orelse return;
     const p_mkstr   = w.getProcAddress(lib, "WindowsCreateString")    orelse return;
     const p_delstr  = w.getProcAddress(lib, "WindowsDeleteString")    orelse return;

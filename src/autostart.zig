@@ -1,7 +1,7 @@
 const w = @import("win32.zig");
 
 const RUN_KEY  = w.L("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
-const APP_NAME = w.L("WinToolbarMediaButtons");
+const APP_NAME = w.L("WTMB");
 
 pub fn isEnabled() bool {
     var hkey: w.HKEY = null;

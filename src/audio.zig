@@ -21,7 +21,7 @@ var g_meter   : ?*anyopaque = null;  // IAudioMeterInformation*
 
 fn ensureVol() bool {
     if (g_vol != null) return true;
-    const lib = w.loadLibrary(w.L("ole32.dll")) orelse return false;
+    const lib = w.loadLibrary("ole32.dll") orelse return false;
     const proc = w.getProcAddress(lib, "CoCreateInstance") orelse return false;
     const FnCoCreate = *const fn (*const GUID, ?*anyopaque, u32, *const GUID, *?*anyopaque) callconv(.winapi) HRESULT;
 

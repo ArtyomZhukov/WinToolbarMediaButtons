@@ -34,9 +34,8 @@ const ICON_PAUSE = [1]u16{0xE103};
 const ICON_NEXT  = [1]u16{0xE893};
 const ICON_VOL   = [1]u16{0xE767};
 const ICON_MUTE  = [1]u16{0xE74F};
-const ICON_VOL0  = [1]u16{0xE992};  // speaker, no waves
-const ICON_VOL1  = [1]u16{0xE993};  // one wave
-const ICON_VOL2  = [1]u16{0xE767};  // two waves (same as VOL)
+const ICON_VOL0  = [1]u16{0xE992};
+const ICON_VOL1  = [1]u16{0xE993};
 
 // ── Structs ───────────────────────────────────────────────────────────────────
 
@@ -75,15 +74,15 @@ var fn_d2d1:  ?FnD2D1  = null;
 
 fn loadLibs() bool {
     if (fn_d3d11 != null) return true;
-    const l3 = w.loadLibrary(w.L("d3d11.dll")) orelse return false;
-    const l2 = w.loadLibrary(w.L("d2d1.dll"))  orelse return false;
+    const l3 = w.loadLibrary("d3d11.dll") orelse return false;
+    const l2 = w.loadLibrary("d2d1.dll")  orelse return false;
     fn_d3d11 = @ptrCast(w.getProcAddress(l3, "D3D11CreateDevice"));
     fn_d2d1  = @ptrCast(w.getProcAddress(l2, "D2D1CreateFactory"));
     return fn_d3d11 != null and fn_d2d1 != null;
 }
 
 fn initDWrite(phys_h: f32) void {
-    const lib = w.loadLibrary(w.L("dwrite.dll")) orelse return;
+    const lib = w.loadLibrary("dwrite.dll") orelse return;
     const proc = w.getProcAddress(lib, "DWriteCreateFactory") orelse return;
     const FnCreate = *const fn (i32, *const GUID, *?*anyopaque) callconv(.winapi) w.LONG;
     var raw: ?*anyopaque = null;
@@ -263,16 +262,10 @@ pub fn fillRoundedRect(ctx: *anyopaque, rr: RoundedRect, brush: *anyopaque) void
         @ptrCast(vt(ctx)[19]))(ctx, &rr, brush);
 }
 
-fn drawIcon(ctx: *anyopaque, icon: []const u16, rect: RectF, brush: *anyopaque) void {
-    const fmt = g_dw_fmt orelse return;
+fn drawGlyph(ctx: *anyopaque, text: []const u16, rect: RectF, brush: *anyopaque, fmt: ?*anyopaque) void {
+    const f = fmt orelse return;
     const Fn = *const fn (*anyopaque, [*]const u16, u32, *anyopaque, *const RectF, *anyopaque, u32, i32) callconv(.winapi) void;
-    @as(Fn, @ptrCast(vt(ctx)[27]))(ctx, icon.ptr, @intCast(icon.len), fmt, &rect, brush, 0, 0);
-}
-
-fn drawText(ctx: *anyopaque, text: []const u16, rect: RectF, brush: *anyopaque) void {
-    const fmt = g_txt_fmt orelse return;
-    const Fn = *const fn (*anyopaque, [*]const u16, u32, *anyopaque, *const RectF, *anyopaque, u32, i32) callconv(.winapi) void;
-    @as(Fn, @ptrCast(vt(ctx)[27]))(ctx, text.ptr, @intCast(text.len), fmt, &rect, brush, 0, 0);
+    @as(Fn, @ptrCast(vt(ctx)[27]))(ctx, text.ptr, @intCast(text.len), f, &rect, brush, 0, 0);
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────────
@@ -356,7 +349,7 @@ fn drawToolbar(ctx: *anyopaque) void {
             .next  => &ICON_NEXT,
             else   => unreachable,
         };
-        drawIcon(ctx, icon, slot, icon_br);
+        drawGlyph(ctx, icon, slot, icon_br, g_dw_fmt);
     }
 
     // Separator
@@ -389,7 +382,7 @@ fn drawToolbar(ctx: *anyopaque) void {
     const vol_icon: []const u16 = if (is_muted) &ICON_MUTE
         else if (volume < 0.33) &ICON_VOL0
         else if (volume < 0.67) &ICON_VOL1
-        else &ICON_VOL2;
+        else &ICON_VOL;
 
     const vol_pct: u32 = @intFromFloat(@max(0.0, @min(100.0, volume * 100.0 + 0.5)));
     var buf8: [4]u8 = undefined;
@@ -410,12 +403,12 @@ fn drawToolbar(ctx: *anyopaque) void {
     const icon_w: f32 = B * 0.65;
     const text_w: f32 = B * 0.95;
     const blk_x       = (sld_slot.left + sld_slot.right) * 0.5 - (icon_w + text_w) * 0.5;
-    drawIcon(ctx, vol_icon,
+    drawGlyph(ctx, vol_icon,
         .{ .left=blk_x, .top=sld_slot.top, .right=blk_x+icon_w, .bottom=sld_slot.bottom },
-        icon_br);
-    drawText(ctx, buf16[0..s8.len],
+        icon_br, g_dw_fmt);
+    drawGlyph(ctx, buf16[0..s8.len],
         .{ .left=blk_x+icon_w, .top=sld_slot.top, .right=blk_x+icon_w+text_w, .bottom=sld_slot.bottom },
-        icon_br);
+        icon_br, g_txt_fmt);
 
     // Volume button — red when muted
     const vol_red: ?*anyopaque = if (is_muted)
@@ -427,5 +420,5 @@ fn drawToolbar(ctx: *anyopaque) void {
     const vol_bg: *anyopaque = if (vol_red != null) vol_red.?
         else if (g_hover == .vol) btn_hv else btn_n;
     fillRoundedRect(ctx, .{ .rect=vol_slot, .radiusX=radius, .radiusY=radius }, vol_bg);
-    drawIcon(ctx, if (is_muted) &ICON_MUTE else &ICON_VOL, vol_slot, icon_br);
+    drawGlyph(ctx, if (is_muted) &ICON_MUTE else &ICON_VOL, vol_slot, icon_br, g_dw_fmt);
 }

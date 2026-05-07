@@ -9,7 +9,6 @@ const HRESULT = w.LONG;
 
 pub const GUID = extern struct { d1: u32, d2: u16, d3: u16, d4: [8]u8 };
 
-pub const IID_IUnknown              = GUID{ .d1=0x00000000,.d2=0x0000,.d3=0x0000,.d4=.{0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46} };
 pub const IID_IInspectable          = GUID{ .d1=0xAF86E2E0,.d2=0xB12D,.d3=0x4C6A,.d4=.{0x9C,0x5A,0xD7,0xAA,0x65,0x10,0x1E,0x90} };
 pub const IID_ICompositor           = GUID{ .d1=0xB403CA50,.d2=0x7F8C,.d3=0x4E83,.d4=.{0x98,0x5F,0xCC,0x45,0x06,0x00,0x36,0xD8} };
 pub const IID_ICompositorDesktopInterop = GUID{ .d1=0x29E691FA,.d2=0x4567,.d3=0x4DCA,.d4=.{0xB3,0x19,0xD0,0xF2,0x07,0xEB,0x68,0x07} };
@@ -33,7 +32,7 @@ var g_delete_string:  ?FnWindowsDeleteString = null;
 
 fn ensureCombase() bool {
     if (g_ro_activate != null) return true;
-    const lib = w.loadLibrary(w.L("combase.dll")) orelse return false;
+    const lib = w.loadLibrary("combase.dll") orelse return false;
     g_ro_activate   = @ptrCast(w.getProcAddress(lib, "RoActivateInstance"));
     g_create_string = @ptrCast(w.getProcAddress(lib, "WindowsCreateString"));
     g_delete_string = @ptrCast(w.getProcAddress(lib, "WindowsDeleteString"));

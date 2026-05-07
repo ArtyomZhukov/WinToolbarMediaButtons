@@ -27,7 +27,7 @@ if not exist "%~dp0zig-out\bin" mkdir "%~dp0zig-out\bin"
 
 echo [2/2] Linking with Crinkler...
 "%CRINKLER%" /SUBSYSTEM:WINDOWS /ENTRY:wWinMainCRTStartup ^
-  /HASHTRIES:300 /ORDERTRIES:2000 ^
+  /HASHTRIES:1000 /ORDERTRIES:10000 /COMPMODE:SLOW ^
   /OUT:"%OUT%" ^
   "%KERNEL32_LIB%" ^
   WinToolbarMediaButtons_x86.obj
@@ -46,4 +46,3 @@ echo Result:
 for %%F in ("%OUT%") do echo   %%F  %%~zF bytes
 
 :end
-pause

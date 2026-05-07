@@ -39,41 +39,11 @@ const ID_EXIT      : w.UINT = 1002;
 const ico_bytes = @embedFile("res/app.ico");
 
 fn loadEmbeddedIcon() w.HICON {
-    if (ico_bytes.len < 6) return null;
-    const count: u16 = @as(u16, ico_bytes[4]) | (@as(u16, ico_bytes[5]) << 8);
-    if (count == 0) return null;
-
-    // Выбираем лучшее изображение: предпочитаем 32x32, иначе берём наибольшее
-    var best_offset: u32 = 0;
-    var best_size:   u32 = 0;
-    var best_score:  i32 = -1;
-
-    var i: u16 = 0;
-    while (i < count) : (i += 1) {
-        const base = 6 + @as(usize, i) * 16;
-        if (base + 16 > ico_bytes.len) break;
-        const width        = ico_bytes[base + 0];  // 0 = 256px
-        const bytes_in_res: u32 = @as(u32, ico_bytes[base+8])  | (@as(u32, ico_bytes[base+9])  << 8) |
-                                  (@as(u32, ico_bytes[base+10]) << 16) | (@as(u32, ico_bytes[base+11]) << 24);
-        const img_offset: u32   = @as(u32, ico_bytes[base+12]) | (@as(u32, ico_bytes[base+13]) << 8) |
-                                  (@as(u32, ico_bytes[base+14]) << 16) | (@as(u32, ico_bytes[base+15]) << 24);
-        const score: i32   = if (width == 32) 1000 else @intCast(width);
-        if (score > best_score) {
-            best_score  = score;
-            best_offset = img_offset;
-            best_size   = bytes_in_res;
-        }
-    }
-
-    if (best_size == 0 or best_offset + best_size > ico_bytes.len) return null;
-
+    // Single image ICO: header(6) + dir_entry(16) + PNG data at offset 22
     return w.CreateIconFromResourceEx(
-        @ptrCast(ico_bytes[best_offset..].ptr),
-        best_size,
-        1,           // fIcon = TRUE
-        0x00030000,  // dwVersion — Windows 3.x DIB format
-        0, 0,        // desired size: 0 = default
-        0,           // LR_DEFAULTCOLOR
+        @ptrCast(ico_bytes[22..].ptr),
+        @intCast(ico_bytes.len - 22),
+        1, 0x00030000, 0, 0, 0,
     );
 }
 
@@ -94,11 +64,6 @@ pub fn create(hwnd: w.HWND) void {
     g_nid.uFlags           = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     g_nid.uCallbackMessage = w.WM_TRAY;
     g_nid.hIcon            = loadEmbeddedIcon();
-
-    // Tip: "Media Buttons"
-    const tip = w.L("Media Buttons");
-    @memcpy(g_nid.szTip[0..tip.len], tip);
-
     _ = w.Shell_NotifyIconW(NIM_ADD, &g_nid);
 }
 
@@ -117,14 +82,14 @@ fn showMenu() void {
     const menu = w.CreatePopupMenu() orelse return;
     defer _ = w.DestroyMenu(menu);
 
-    const autostart_text = if (isAutostartEnabled())
-        w.L("Автозапуск: выключить")
+    const autostart_text: [*:0]const u8 = if (isAutostartEnabled())
+        "Autostart: off"
     else
-        w.L("Автозапуск: включить");
+        "Autostart: on";
 
-    _ = w.AppendMenuW(menu, MF_STRING, ID_AUTOSTART, autostart_text);
-    _ = w.AppendMenuW(menu, MF_SEPARATOR, 0, null);
-    _ = w.AppendMenuW(menu, MF_STRING, ID_EXIT, w.L("Выход"));
+    _ = w.AppendMenuA(menu, MF_STRING, ID_AUTOSTART, autostart_text);
+    _ = w.AppendMenuA(menu, MF_SEPARATOR, 0, null);
+    _ = w.AppendMenuA(menu, MF_STRING, ID_EXIT, "Quit");
 
     var pt: w.POINT = undefined;
     _ = w.getCursorPos(&pt);
