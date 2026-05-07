@@ -14,7 +14,7 @@ pub const IID_ISpriteVisual             = GUID{ .d1=0x08E05581,.d2=0x1AD1,.d3=0x
 pub const IID_ICompositionSurfaceBrush  = GUID{ .d1=0xAD016D79,.d2=0x1E4C,.d3=0x4C0D,.d4=.{0x9C,0x29,0x83,0x33,0x8C,0x87,0xC1,0x62} };
 pub const IID_ICompositionTarget        = GUID{ .d1=0xA1BEA8BA,.d2=0xD726,.d3=0x4663,.d4=.{0x81,0x29,0x6B,0x5E,0x79,0x27,0xFF,0xA6} };
 
-pub inline fn vtbl(obj: *anyopaque) [*]const *const anyopaque {
+pub fn vtbl(obj: *anyopaque) [*]const *const anyopaque {
     return @as(*const [*]const *const anyopaque, @ptrCast(@alignCast(obj))).*;
 }
 

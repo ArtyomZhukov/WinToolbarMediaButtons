@@ -35,7 +35,7 @@ fn sliderVolume(x: w.INT) f32 {
     return @as(f32, @floatFromInt(rel_x)) / @as(f32, @floatFromInt(sld_w));
 }
 
-fn sendMediaKey(vk: w.UINT) void {
+inline fn sendMediaKey(vk: w.UINT) void {
     w.keybdEvent(@truncate(vk), 0, 0, 0);
     w.keybdEvent(@truncate(vk), 0, w.KEYEVENTF_KEYUP, 0);
 }

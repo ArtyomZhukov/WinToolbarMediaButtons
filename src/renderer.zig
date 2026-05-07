@@ -225,7 +225,7 @@ pub fn fillRoundedRect(ctx: *anyopaque, rr: RoundedRect, brush: *anyopaque) void
         @ptrCast(vt(ctx)[19]))(ctx, &rr, brush);
 }
 
-fn drawGlyph(ctx: *anyopaque, text: []const u16, rect: RectF, brush: *anyopaque) void {
+inline fn drawGlyph(ctx: *anyopaque, text: []const u16, rect: RectF, brush: *anyopaque) void {
     const f = g_dw_fmt orelse return;
     const Fn = *const fn (*anyopaque, [*]const u16, u32, *anyopaque, *const RectF, *anyopaque, u32, i32) callconv(.winapi) void;
     @as(Fn, @ptrCast(vt(ctx)[27]))(ctx, text.ptr, @intCast(text.len), f, &rect, brush, 0, 0);
