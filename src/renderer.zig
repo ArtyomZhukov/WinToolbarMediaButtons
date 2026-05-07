@@ -8,14 +8,14 @@ pub const HitZone = enum { none, prev, play, next, slider, vol };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const DXGI_FORMAT_B8G8R8A8_UNORM    : i32 = 87;
-const DXGI_USAGE_RENDER_TARGET_OUTPUT: u32 = 0x20;
+const DXGI_FORMAT_B8G8R8A8_UNORM     : i32 = 87;
+const DXGI_USAGE_RENDER_TARGET_OUTPUT : u32 = 0x20;
 const DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL: i32 = 3;
-const DXGI_ALPHA_MODE_PREMULTIPLIED : i32 = 1;
-const DXGI_SCALING_STRETCH          : i32 = 0;
-const D3D11_SDK_VERSION             : u32 = 7;
-const D3D_DRIVER_TYPE_HARDWARE      : i32 = 1;
-const D3D_DRIVER_TYPE_WARP          : i32 = 5;
+const DXGI_ALPHA_MODE_PREMULTIPLIED  : i32 = 1;
+const DXGI_SCALING_STRETCH           : i32 = 0;
+const D3D11_SDK_VERSION              : u32 = 7;
+const D3D_DRIVER_TYPE_HARDWARE       : i32 = 1;
+const D3D_DRIVER_TYPE_WARP           : i32 = 5;
 const D3D11_CREATE_DEVICE_BGRA_SUPPORT: u32 = 0x20;
 
 // ── GUIDs ─────────────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ const SwapChainDesc = extern struct {
 pub const ColorF = extern struct { r: f32, g: f32, b: f32, a: f32 };
 
 const BitmapProperties1 = extern struct {
-    format:        i32,  // DXGI_FORMAT
+    format:        i32,
     alphaMode:     i32,
     dpiX:          f32,
     dpiY:          f32,
@@ -60,7 +60,7 @@ const BitmapProperties1 = extern struct {
     colorContext:  ?*anyopaque,
 };
 
-pub const RectF = extern struct { left: f32, top: f32, right: f32, bottom: f32 };
+pub const RectF       = extern struct { left: f32, top: f32, right: f32, bottom: f32 };
 pub const RoundedRect = extern struct { rect: RectF, radiusX: f32, radiusY: f32 };
 
 // ── Dynamic loading ───────────────────────────────────────────────────────────
@@ -122,17 +122,17 @@ const rel = comp.release;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
-var g_sc       : ?*anyopaque = null;   // IDXGISwapChain1*
-var g_ctx      : ?*anyopaque = null;   // ID2D1DeviceContext*
-var g_w        : u32 = 0;
-var g_h        : u32 = 0;
-var g_btn      : u32 = 0;             // physical button side length
-var g_gap      : u32 = 2;             // physical gap between button slots
-var g_ml       : u32 = 0;             // physical left margin
-var g_hover    : HitZone = .none;
-var g_dw_fmt   : ?*anyopaque = null;   // IDWriteTextFormat* for icons
-var g_txt_fmt  : ?*anyopaque = null;   // IDWriteTextFormat* for percentage text
-var g_playing  : bool = false;
+var g_sc      : ?*anyopaque = null;   // IDXGISwapChain1*
+var g_ctx     : ?*anyopaque = null;   // ID2D1DeviceContext*
+var g_w       : u32 = 0;
+var g_h       : u32 = 0;
+var g_btn     : u32 = 0;
+var g_gap     : u32 = 2;
+var g_ml      : u32 = 0;
+var g_hover   : HitZone = .none;
+var g_dw_fmt  : ?*anyopaque = null;   // IDWriteTextFormat* for icons
+var g_txt_fmt : ?*anyopaque = null;   // IDWriteTextFormat* for percentage text
+var g_playing : bool = false;
 
 pub fn setHover(z: HitZone) bool {
     if (g_hover == z) return false;
@@ -152,7 +152,6 @@ pub fn setPlaying(p: bool) bool {
 pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u32, btn_size: u32, gap: u32, margin_l: u32) bool {
     if (!loadLibs()) return false;
 
-    // D3D11 device (hardware, fallback WARP)
     var d3d: ?*anyopaque = null;
     if (fn_d3d11.?(null, D3D_DRIVER_TYPE_HARDWARE, null, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
             null, 0, D3D11_SDK_VERSION, &d3d, null, null) != 0)
@@ -164,7 +163,6 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
     const dxgi_dev = qi(d3d_dev, &IID_IDXGIDevice) orelse return false;
     defer rel(dxgi_dev);
 
-    // D2D1Factory1 → D2D1Device → D2D1DeviceContext
     var fptr: ?*anyopaque = null;
     if (fn_d2d1.?(0, &IID_ID2D1Factory1, null, &fptr) != 0) return false;
     const fact = fptr orelse return false;
@@ -181,7 +179,6 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
             @ptrCast(vt(ddev)[4]))(ddev, 0, &ctx) != 0) return false;
     const d2d_ctx = ctx orelse return false;
 
-    // IDXGIDevice → IDXGIAdapter → IDXGIFactory2
     var adp: ?*anyopaque = null;
     if (@as(*const fn (*anyopaque, *?*anyopaque) callconv(.winapi) w.LONG,
             @ptrCast(vt(dxgi_dev)[7]))(dxgi_dev, &adp) != 0) { rel(d2d_ctx); return false; }
@@ -194,7 +191,6 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
     const factory2 = f2 orelse { rel(d2d_ctx); return false; };
     defer rel(factory2);
 
-    // Swap chain for composition (BGRA, premultiplied alpha, flip)
     const desc = SwapChainDesc{
         .Width = width, .Height = height,
         .Format = DXGI_FORMAT_B8G8R8A8_UNORM,
@@ -208,7 +204,6 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
             @ptrCast(vt(factory2)[24]))(factory2, dxgi_dev, &desc, null, &sc) != 0) { rel(d2d_ctx); return false; }
     const swap_chain = sc orelse { rel(d2d_ctx); return false; };
 
-    // Wire swap chain → Composition SpriteVisual brush
     const csurf = comp.createCompositionSurfaceForSwapChain(compositor, swap_chain) orelse {
         rel(d2d_ctx); rel(swap_chain); return false;
     };
@@ -233,17 +228,6 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
 }
 
 // ── D2D1 draw helpers ─────────────────────────────────────────────────────────
-
-// vtable indices on ID2D1DeviceContext (confirmed against d2d1.h):
-//  [8]  CreateSolidColorBrush
-//  [17] FillRectangle
-//  [18] DrawRoundedRectangle
-//  [19] FillRoundedRectangle
-//  [47] Clear
-//  [48] BeginDraw
-//  [49] EndDraw
-//  [62] CreateBitmapFromDxgiSurface
-//  [74] SetTarget
 
 fn createBrush(ctx: *anyopaque, color: ColorF) ?*anyopaque {
     var out: ?*anyopaque = null;
@@ -274,18 +258,16 @@ pub fn render() void {
     const sc  = g_sc  orelse return;
     const ctx = g_ctx orelse return;
 
-    // GetBuffer(0, IDXGISurface) [vtable[9]]
     var sp: ?*anyopaque = null;
     if (@as(*const fn (*anyopaque, u32, *const GUID, *?*anyopaque) callconv(.winapi) w.LONG,
             @ptrCast(vt(sc)[9]))(sc, 0, &IID_IDXGISurface, &sp) != 0) return;
     const surf = sp orelse return;
     defer rel(surf);
 
-    // CreateBitmapFromDxgiSurface [vtable[62]]
     const bp = BitmapProperties1{
         .format = DXGI_FORMAT_B8G8R8A8_UNORM, .alphaMode = 1,
         .dpiX = 96, .dpiY = 96,
-        .bitmapOptions = 3, // TARGET | CANNOT_DRAW
+        .bitmapOptions = 3,
         ._pad = 0, .colorContext = null,
     };
     var bm: ?*anyopaque = null;
@@ -294,7 +276,6 @@ pub fn render() void {
     const bitmap = bm orelse return;
     defer rel(bitmap);
 
-    // SetTarget → BeginDraw → draw → EndDraw → SetTarget(null)
     @as(*const fn (*anyopaque, ?*anyopaque) callconv(.winapi) void, @ptrCast(vt(ctx)[74]))(ctx, bitmap);
     @as(*const fn (*anyopaque) callconv(.winapi) void, @ptrCast(vt(ctx)[48]))(ctx);
 
@@ -303,18 +284,17 @@ pub fn render() void {
     _ = @as(*const fn (*anyopaque, ?*u64, ?*u64) callconv(.winapi) w.LONG, @ptrCast(vt(ctx)[49]))(ctx, null, null);
     @as(*const fn (*anyopaque, ?*anyopaque) callconv(.winapi) void, @ptrCast(vt(ctx)[74]))(ctx, null);
 
-    // Present [vtable[8]]
     _ = @as(*const fn (*anyopaque, u32, u32) callconv(.winapi) w.LONG, @ptrCast(vt(sc)[8]))(sc, 0, 0);
 }
 
 fn drawToolbar(ctx: *anyopaque) void {
-    const W: f32 = @floatFromInt(g_w);
-    const H: f32 = @floatFromInt(g_h);
+    const W: f32  = @floatFromInt(g_w);
+    const H: f32  = @floatFromInt(g_h);
     const B: f32  = @floatFromInt(g_btn);
     const g: f32  = @floatFromInt(g_gap);
     const ml: f32 = @floatFromInt(g_ml);
     const sep: f32 = W - 8.0*B - ml - ml;
-    const vy: f32 = (H - B) / 2.0;
+    const vy: f32     = (H - B) / 2.0;
     const radius: f32 = (B - 2.0*g) * 0.22;
 
     @as(*const fn (*anyopaque, *const ColorF) callconv(.winapi) void,
@@ -330,7 +310,6 @@ fn drawToolbar(ctx: *anyopaque) void {
     const is_muted = audio.getMute();
     const volume   = audio.getVolume();
 
-    // Green brush for active play state
     const play_green: ?*anyopaque = if (g_playing)
         createBrush(ctx, .{ .r=0.0, .g=0.60, .b=0.22, .a=0.28 }) else null;
     defer if (play_green) |b| rel(b);
@@ -352,18 +331,12 @@ fn drawToolbar(ctx: *anyopaque) void {
         drawGlyph(ctx, icon, slot, icon_br, g_dw_fmt);
     }
 
-    // Separator
-    const sep_br = createBrush(ctx, .{ .r=0.039, .g=0.039, .b=0.039, .a=0.196 }) orelse return;
-    defer rel(sep_br);
-    const sx = ml + 3.0 * B;
-    fillRect(ctx, .{ .left=sx, .top=vy+B*0.15, .right=sx+sep, .bottom=vy+B*0.85 }, sep_br);
-
-    // Slider background (4B wide)
+    // Slider background (4B wide, starts right after the three buttons)
     const sld_n  = createBrush(ctx, .{ .r=0.019, .g=0.019, .b=0.019, .a=0.137 }) orelse return;
     defer rel(sld_n);
     const sld_hv = createBrush(ctx, .{ .r=0.033, .g=0.033, .b=0.033, .a=0.18  }) orelse return;
     defer rel(sld_hv);
-    const sld_x0  = sx + sep;
+    const sld_x0   = ml + 3.0 * B + sep;
     const sld_slot = RectF{ .left=sld_x0+g, .top=vy+g, .right=sld_x0+4.0*B-g, .bottom=vy+B-g };
     fillRoundedRect(ctx, .{ .rect=sld_slot, .radiusX=radius, .radiusY=radius },
         if (g_hover == .slider) sld_hv else sld_n);
@@ -415,7 +388,7 @@ fn drawToolbar(ctx: *anyopaque) void {
         createBrush(ctx, .{ .r=0.65, .g=0.0, .b=0.0, .a=0.28 }) else null;
     defer if (vol_red) |b| rel(b);
 
-    const vol_x   = sld_x0 + 4.0 * B;
+    const vol_x    = sld_x0 + 4.0 * B;
     const vol_slot = RectF{ .left=vol_x+g, .top=vy+g, .right=vol_x+B-g, .bottom=vy+B-g };
     const vol_bg: *anyopaque = if (vol_red != null) vol_red.?
         else if (g_hover == .vol) btn_hv else btn_n;
