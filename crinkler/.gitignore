@@ -1,0 +1,10 @@
+# Archives and extracted dirs
+*.zip
+crinkler30/
+
+# Old/unused import lib variants (kernel32_stdcall.lib is tracked)
+kernel32.lib
+kernel32_msvc.lib
+kernel32_x86.lib
+kernel32.def
+kernel32_simple.def

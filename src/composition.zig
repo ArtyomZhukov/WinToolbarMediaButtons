@@ -42,7 +42,7 @@ fn ensureCombase() bool {
 
 // ── vtable helpers ────────────────────────────────────────────────────────────
 
-inline fn vtbl(obj: *anyopaque) [*]const *const anyopaque {
+pub inline fn vtbl(obj: *anyopaque) [*]const *const anyopaque {
     return @as(*const [*]const *const anyopaque, @ptrCast(@alignCast(obj))).*;
 }
 

@@ -21,12 +21,8 @@ const IID_SMTCStatics = GUID{
     .d4=.{0xAE,0xD7,0xC9,0x7C,0x70,0x33,0x82,0x45}
 };
 
-inline fn vt(obj: *anyopaque) [*]const *const anyopaque {
-    return @as(*const [*]const *const anyopaque, @ptrCast(@alignCast(obj))).*;
-}
-inline fn rel(obj: *anyopaque) void {
-    _ = @as(*const fn (*anyopaque) callconv(.winapi) u32, @ptrCast(vt(obj)[2]))(obj);
-}
+const vt  = comp.vtbl;
+const rel = comp.release;
 
 var g_async_op : ?*anyopaque = null;  // IAsyncOperation<SessionManager>*
 var g_mgr      : ?*anyopaque = null;  // IGlobalSystemMediaTransportControlsSessionManager*

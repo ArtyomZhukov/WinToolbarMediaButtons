@@ -18,6 +18,14 @@ pub fn build(b: *std.Build) void {
 
     exe.subsystem = .Windows;
     exe.root_module.strip = true;
+    exe.root_module.unwind_tables = .none;
+    exe.root_module.omit_frame_pointer = true;
+    exe.lto = .full;
+    exe.link_function_sections = true;
+    exe.link_data_sections = true;
+    exe.link_gc_sections = true;
+    exe.build_id = .none;
+    exe.linker_dynamicbase = false;
 
     b.installArtifact(exe);
 }

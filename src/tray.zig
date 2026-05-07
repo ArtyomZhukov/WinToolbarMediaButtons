@@ -25,8 +25,7 @@ const NIF_MESSAGE: w.UINT  = 0x00000001;
 const NIF_ICON   : w.UINT  = 0x00000002;
 const NIF_TIP    : w.UINT  = 0x00000004;
 
-const MF_STRING  : w.UINT = 0x00000000;
-const MF_GRAYED  : w.UINT = 0x00000001;
+const MF_STRING   : w.UINT = 0x00000000;
 const MF_SEPARATOR: w.UINT = 0x00000800;
 const TPM_RIGHTBUTTON: w.UINT = 0x0002;
 const TPM_RETURNCMD:   w.UINT = 0x0100;
@@ -35,14 +34,6 @@ const TPM_NONOTIFY:    w.UINT = 0x0080;
 const ID_AUTOSTART : w.UINT = 1001;
 const ID_EXIT      : w.UINT = 1002;
 
-extern "shell32" fn Shell_NotifyIconW(w.DWORD, *NOTIFYICONDATAW) callconv(.winapi) w.BOOL;
-extern "user32"  fn CreatePopupMenu() callconv(.winapi) w.HMENU;
-extern "user32"  fn AppendMenuW(w.HMENU, w.UINT, usize, ?[*:0]const w.WCHAR) callconv(.winapi) w.BOOL;
-extern "user32"  fn TrackPopupMenu(w.HMENU, w.UINT, w.INT, w.INT, w.INT, w.HWND, ?*anyopaque) callconv(.winapi) w.BOOL;
-extern "user32"  fn DestroyMenu(w.HMENU) callconv(.winapi) w.BOOL;
-extern "user32"  fn SetForegroundWindow(w.HWND) callconv(.winapi) w.BOOL;
-extern "user32"  fn DestroyIcon(w.HICON) callconv(.winapi) w.BOOL;
-extern "user32"  fn CreateIconFromResourceEx(?[*]const u8, w.DWORD, w.BOOL, w.DWORD, w.INT, w.INT, w.UINT) callconv(.winapi) w.HICON;
 
 // ICO-файл встроен прямо в бинарь
 const ico_bytes = @embedFile("res/app.ico");
@@ -76,7 +67,7 @@ fn loadEmbeddedIcon() w.HICON {
 
     if (best_size == 0 or best_offset + best_size > ico_bytes.len) return null;
 
-    return CreateIconFromResourceEx(
+    return w.CreateIconFromResourceEx(
         @ptrCast(ico_bytes[best_offset..].ptr),
         best_size,
         1,           // fIcon = TRUE
@@ -108,11 +99,11 @@ pub fn create(hwnd: w.HWND) void {
     const tip = w.L("Media Buttons");
     @memcpy(g_nid.szTip[0..tip.len], tip);
 
-    _ = Shell_NotifyIconW(NIM_ADD, &g_nid);
+    _ = w.Shell_NotifyIconW(NIM_ADD, &g_nid);
 }
 
 pub fn destroy() void {
-    _ = Shell_NotifyIconW(NIM_DELETE, &g_nid);
+    _ = w.Shell_NotifyIconW(NIM_DELETE, &g_nid);
 }
 
 pub fn handleTrayMessage(lp: w.LPARAM) void {
@@ -123,23 +114,23 @@ pub fn handleTrayMessage(lp: w.LPARAM) void {
 }
 
 fn showMenu() void {
-    const menu = CreatePopupMenu() orelse return;
-    defer _ = DestroyMenu(menu);
+    const menu = w.CreatePopupMenu() orelse return;
+    defer _ = w.DestroyMenu(menu);
 
     const autostart_text = if (isAutostartEnabled())
         w.L("Автозапуск: выключить")
     else
         w.L("Автозапуск: включить");
 
-    _ = AppendMenuW(menu, MF_STRING, ID_AUTOSTART, autostart_text);
-    _ = AppendMenuW(menu, MF_SEPARATOR, 0, null);
-    _ = AppendMenuW(menu, MF_STRING, ID_EXIT, w.L("Выход"));
+    _ = w.AppendMenuW(menu, MF_STRING, ID_AUTOSTART, autostart_text);
+    _ = w.AppendMenuW(menu, MF_SEPARATOR, 0, null);
+    _ = w.AppendMenuW(menu, MF_STRING, ID_EXIT, w.L("Выход"));
 
     var pt: w.POINT = undefined;
     _ = w.getCursorPos(&pt);
 
-    _ = SetForegroundWindow(g_hwnd);
-    const cmd = TrackPopupMenu(
+    _ = w.SetForegroundWindow(g_hwnd);
+    const cmd = w.TrackPopupMenu(
         menu,
         TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
         pt.x, pt.y, 0,

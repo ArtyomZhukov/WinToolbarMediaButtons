@@ -4,6 +4,12 @@ obj/
 .zig-cache/
 zig-out/
 
+# Intermediate object files
+*.obj
+
+# Crinkler crash dumps
+*.dmp
+
 # Visual Studio
 .vs/
 *.user

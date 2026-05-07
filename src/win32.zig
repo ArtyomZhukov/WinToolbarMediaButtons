@@ -89,33 +89,7 @@ extern "kernel32" fn ExitProcess(UINT) callconv(.winapi) noreturn;
 extern "kernel32" fn GetModuleHandleW(?[*:0]const WCHAR) callconv(.winapi) HMODULE;
 extern "kernel32" fn LoadLibraryW([*:0]const WCHAR) callconv(.winapi) HMODULE;
 extern "kernel32" fn GetProcAddress(HMODULE, [*:0]const u8) callconv(.winapi) ?*anyopaque;
-extern "user32"   fn SetProcessDpiAwarenessContext(HANDLE) callconv(.winapi) BOOL;
-
-// ── user32 ────────────────────────────────────────────────────────────────────
-extern "user32" fn GetMessageW(*MSG, HWND, UINT, UINT) callconv(.winapi) BOOL;
-extern "user32" fn TranslateMessage(*const MSG) callconv(.winapi) BOOL;
-extern "user32" fn DispatchMessageW(*const MSG) callconv(.winapi) LRESULT;
-extern "user32" fn PostQuitMessage(INT) callconv(.winapi) void;
-extern "user32" fn DefWindowProcW(HWND, UINT, WPARAM, LPARAM) callconv(.winapi) LRESULT;
-extern "user32" fn RegisterClassExW(*const WNDCLASSEXW) callconv(.winapi) ATOM;
-extern "user32" fn CreateWindowExW(DWORD, [*:0]const WCHAR, [*:0]const WCHAR, DWORD, INT, INT, INT, INT, HWND, HMENU, HINSTANCE, ?*anyopaque) callconv(.winapi) HWND;
-extern "user32" fn FindWindowW([*:0]const WCHAR, ?[*:0]const WCHAR) callconv(.winapi) HWND;
-extern "user32" fn SetWindowPos(HWND, HWND, INT, INT, INT, INT, UINT) callconv(.winapi) BOOL;
-extern "user32" fn GetWindowRect(HWND, *RECT) callconv(.winapi) BOOL;
-extern "user32" fn TrackMouseEvent(*TRACKMOUSEEVENT) callconv(.winapi) BOOL;
-extern "user32" fn GetCursorPos(*POINT) callconv(.winapi) BOOL;
-extern "user32" fn ScreenToClient(HWND, *POINT) callconv(.winapi) BOOL;
-extern "user32" fn LoadCursorW(HINSTANCE, usize) callconv(.winapi) HCURSOR;
-extern "user32" fn SetCursor(HCURSOR) callconv(.winapi) HCURSOR;
-extern "user32" fn GetWindowLongW(HWND, INT) callconv(.winapi) LONG;
-extern "user32" fn SetWindowLongW(HWND, INT, LONG) callconv(.winapi) LONG;
-extern "user32" fn SetParent(HWND, HWND) callconv(.winapi) HWND;
-extern "user32" fn GetClientRect(HWND, *RECT) callconv(.winapi) BOOL;
-extern "user32" fn GetDpiForWindow(HWND) callconv(.winapi) UINT;
-extern "user32" fn keybd_event(BYTE, BYTE, DWORD, usize) callconv(.winapi) void;
-extern "user32" fn SetCapture(HWND) callconv(.winapi) HWND;
-extern "user32" fn ReleaseCapture() callconv(.winapi) BOOL;
-extern "user32" fn SetTimer(HWND, usize, UINT, ?*anyopaque) callconv(.winapi) usize;
+extern "kernel32" fn GetModuleFileNameW(HMODULE, [*]WCHAR, DWORD) callconv(.winapi) DWORD;
 
 pub const TME_LEAVE : DWORD = 0x00000002;
 pub const TRACKMOUSEEVENT = extern struct {
@@ -140,44 +114,105 @@ pub const VK_MEDIA_NEXT_TRACK : UINT  = 0xB0;
 pub const VK_MEDIA_PREV_TRACK : UINT  = 0xB1;
 pub const VK_MEDIA_PLAY_PAUSE : UINT  = 0xB3;
 
-// Re-export so callers just import win32
-pub const exit   = ExitProcess;
-pub const getMsg = GetMessageW;
-pub const translate = TranslateMessage;
-pub const dispatch  = DispatchMessageW;
-pub const postQuit   = PostQuitMessage;
-pub const quit       = postQuit;
-pub const defWndProc = DefWindowProcW;
-pub const getModuleHandle = GetModuleHandleW;
-pub const registerClass = RegisterClassExW;
-pub const createWindow  = CreateWindowExW;
-pub const findWindow    = FindWindowW;
-pub const setWindowPos  = SetWindowPos;
-pub const getWindowRect = GetWindowRect;
-pub const trackMouse    = TrackMouseEvent;
-pub const getCursorPos  = GetCursorPos;
-pub const screenToClient = ScreenToClient;
-pub const loadCursor     = LoadCursorW;
-pub const loadLibrary    = LoadLibraryW;
-pub const getProcAddress = GetProcAddress;
-pub const setDpiAwareness = SetProcessDpiAwarenessContext;
+// kernel32 (static)
+pub const exit              = ExitProcess;
+pub const getModuleHandle   = GetModuleHandleW;
+pub const loadLibrary       = LoadLibraryW;
+pub const getProcAddress    = GetProcAddress;
+pub const getModuleFileName = GetModuleFileNameW;
 
 // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = (HANDLE)(LONG_PTR)-4
 pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: HANDLE =
     @ptrFromInt(@as(usize, @bitCast(@as(isize, -4))));
-pub const getWindowLong  = GetWindowLongW;
-pub const setWindowLong  = SetWindowLongW;
-pub const setParent      = SetParent;
-pub const getClientRect    = GetClientRect;
-pub const getDpiForWindow  = GetDpiForWindow;
-pub const keybdEvent       = keybd_event;
-pub const setCapture       = SetCapture;
-pub const releaseCapture   = ReleaseCapture;
-pub const setTimer         = SetTimer;
 
-// Special Z-order values for SetWindowPos
-pub const HWND_BOTTOM: HWND = @ptrFromInt(1);
-pub const HWND_TOP:    HWND = @ptrFromInt(0);
+// user32 + shell32 — loaded dynamically by initWin32()
+pub var setDpiAwareness : *const fn (HANDLE)                                                                                    callconv(.winapi) BOOL    = undefined;
+pub var getMsg          : *const fn (*MSG, HWND, UINT, UINT)                                                                    callconv(.winapi) BOOL    = undefined;
+pub var translate       : *const fn (*const MSG)                                                                                callconv(.winapi) BOOL    = undefined;
+pub var dispatch        : *const fn (*const MSG)                                                                                callconv(.winapi) LRESULT = undefined;
+pub var postQuit        : *const fn (INT)                                                                                       callconv(.winapi) void    = undefined;
+pub var defWndProc      : *const fn (HWND, UINT, WPARAM, LPARAM)                                                               callconv(.winapi) LRESULT = undefined;
+pub var registerClass   : *const fn (*const WNDCLASSEXW)                                                                       callconv(.winapi) ATOM    = undefined;
+pub var createWindow    : *const fn (DWORD, [*:0]const WCHAR, [*:0]const WCHAR, DWORD, INT, INT, INT, INT, HWND, HMENU, HINSTANCE, ?*anyopaque) callconv(.winapi) HWND = undefined;
+pub var findWindow      : *const fn ([*:0]const WCHAR, ?[*:0]const WCHAR)                                                     callconv(.winapi) HWND    = undefined;
+pub var setWindowPos    : *const fn (HWND, HWND, INT, INT, INT, INT, UINT)                                                    callconv(.winapi) BOOL    = undefined;
+pub var getWindowRect   : *const fn (HWND, *RECT)                                                                             callconv(.winapi) BOOL    = undefined;
+pub var trackMouse      : *const fn (*TRACKMOUSEEVENT)                                                                        callconv(.winapi) BOOL    = undefined;
+pub var getCursorPos    : *const fn (*POINT)                                                                                  callconv(.winapi) BOOL    = undefined;
+pub var screenToClient  : *const fn (HWND, *POINT)                                                                           callconv(.winapi) BOOL    = undefined;
+pub var loadCursor      : *const fn (HINSTANCE, usize)                                                                       callconv(.winapi) HCURSOR = undefined;
+pub var getWindowLong   : *const fn (HWND, INT)                                                                              callconv(.winapi) LONG    = undefined;
+pub var setWindowLong   : *const fn (HWND, INT, LONG)                                                                        callconv(.winapi) LONG    = undefined;
+pub var setParent       : *const fn (HWND, HWND)                                                                             callconv(.winapi) HWND    = undefined;
+pub var getClientRect   : *const fn (HWND, *RECT)                                                                            callconv(.winapi) BOOL    = undefined;
+pub var getDpiForWindow : *const fn (HWND)                                                                                   callconv(.winapi) UINT    = undefined;
+pub var keybdEvent      : *const fn (BYTE, BYTE, DWORD, usize)                                                              callconv(.winapi) void    = undefined;
+pub var setCapture      : *const fn (HWND)                                                                                   callconv(.winapi) HWND    = undefined;
+pub var releaseCapture  : *const fn ()                                                                                       callconv(.winapi) BOOL    = undefined;
+pub var setTimer        : *const fn (HWND, usize, UINT, ?*anyopaque)                                                        callconv(.winapi) usize   = undefined;
+pub var Shell_NotifyIconW        : *const fn (DWORD, *anyopaque)                                                            callconv(.winapi) BOOL    = undefined;
+pub var CreatePopupMenu          : *const fn ()                                                                             callconv(.winapi) HMENU   = undefined;
+pub var AppendMenuW              : *const fn (HMENU, UINT, usize, ?[*:0]const WCHAR)                                       callconv(.winapi) BOOL    = undefined;
+pub var TrackPopupMenu           : *const fn (HMENU, UINT, INT, INT, INT, HWND, ?*anyopaque)                               callconv(.winapi) BOOL    = undefined;
+pub var DestroyMenu              : *const fn (HMENU)                                                                       callconv(.winapi) BOOL    = undefined;
+pub var SetForegroundWindow      : *const fn (HWND)                                                                        callconv(.winapi) BOOL    = undefined;
+pub var CreateIconFromResourceEx : *const fn (?[*]const u8, DWORD, BOOL, DWORD, INT, INT, UINT) callconv(.winapi) HICON   = undefined;
+
+pub fn initWin32() void {
+    const huser32  = LoadLibraryW(L("user32.dll"))  orelse return;
+    const hshell32 = LoadLibraryW(L("shell32.dll")) orelse return;
+    setDpiAwareness  = @ptrCast(GetProcAddress(huser32, "SetProcessDpiAwarenessContext").?);
+    getMsg           = @ptrCast(GetProcAddress(huser32, "GetMessageW").?);
+    translate        = @ptrCast(GetProcAddress(huser32, "TranslateMessage").?);
+    dispatch         = @ptrCast(GetProcAddress(huser32, "DispatchMessageW").?);
+    postQuit         = @ptrCast(GetProcAddress(huser32, "PostQuitMessage").?);
+    defWndProc       = @ptrCast(GetProcAddress(huser32, "DefWindowProcW").?);
+    registerClass    = @ptrCast(GetProcAddress(huser32, "RegisterClassExW").?);
+    createWindow     = @ptrCast(GetProcAddress(huser32, "CreateWindowExW").?);
+    findWindow       = @ptrCast(GetProcAddress(huser32, "FindWindowW").?);
+    setWindowPos     = @ptrCast(GetProcAddress(huser32, "SetWindowPos").?);
+    getWindowRect    = @ptrCast(GetProcAddress(huser32, "GetWindowRect").?);
+    trackMouse       = @ptrCast(GetProcAddress(huser32, "TrackMouseEvent").?);
+    getCursorPos     = @ptrCast(GetProcAddress(huser32, "GetCursorPos").?);
+    screenToClient   = @ptrCast(GetProcAddress(huser32, "ScreenToClient").?);
+    loadCursor       = @ptrCast(GetProcAddress(huser32, "LoadCursorW").?);
+    getWindowLong    = @ptrCast(GetProcAddress(huser32, "GetWindowLongW").?);
+    setWindowLong    = @ptrCast(GetProcAddress(huser32, "SetWindowLongW").?);
+    setParent        = @ptrCast(GetProcAddress(huser32, "SetParent").?);
+    getClientRect    = @ptrCast(GetProcAddress(huser32, "GetClientRect").?);
+    getDpiForWindow  = @ptrCast(GetProcAddress(huser32, "GetDpiForWindow").?);
+    keybdEvent       = @ptrCast(GetProcAddress(huser32, "keybd_event").?);
+    setCapture       = @ptrCast(GetProcAddress(huser32, "SetCapture").?);
+    releaseCapture   = @ptrCast(GetProcAddress(huser32, "ReleaseCapture").?);
+    setTimer         = @ptrCast(GetProcAddress(huser32, "SetTimer").?);
+    CreatePopupMenu         = @ptrCast(GetProcAddress(huser32, "CreatePopupMenu").?);
+    AppendMenuW             = @ptrCast(GetProcAddress(huser32, "AppendMenuW").?);
+    TrackPopupMenu          = @ptrCast(GetProcAddress(huser32, "TrackPopupMenu").?);
+    DestroyMenu             = @ptrCast(GetProcAddress(huser32, "DestroyMenu").?);
+    SetForegroundWindow     = @ptrCast(GetProcAddress(huser32, "SetForegroundWindow").?);
+    CreateIconFromResourceEx = @ptrCast(GetProcAddress(huser32, "CreateIconFromResourceEx").?);
+    Shell_NotifyIconW        = @ptrCast(GetProcAddress(hshell32, "Shell_NotifyIconW").?);
+    const hadvapi32 = LoadLibraryW(L("advapi32.dll")) orelse return;
+    RegOpenKeyExW    = @ptrCast(GetProcAddress(hadvapi32, "RegOpenKeyExW").?);
+    RegQueryValueExW = @ptrCast(GetProcAddress(hadvapi32, "RegQueryValueExW").?);
+    RegSetValueExW   = @ptrCast(GetProcAddress(hadvapi32, "RegSetValueExW").?);
+    RegDeleteValueW  = @ptrCast(GetProcAddress(hadvapi32, "RegDeleteValueW").?);
+    RegCloseKey      = @ptrCast(GetProcAddress(hadvapi32, "RegCloseKey").?);
+}
+
+// Registry
+pub const HKEY = ?*opaque {};
+pub const HKEY_CURRENT_USER: HKEY = @ptrFromInt(0x80000001);
+pub const KEY_QUERY_VALUE: DWORD = 0x0001;
+pub const KEY_SET_VALUE:   DWORD = 0x0002;
+pub const REG_SZ:          DWORD = 1;
+
+// advapi32 — registry functions, loaded by initWin32()
+pub var RegOpenKeyExW:   *const fn (HKEY, [*:0]const WCHAR, DWORD, DWORD, *HKEY)                 callconv(.winapi) LONG = undefined;
+pub var RegQueryValueExW: *const fn (HKEY, [*:0]const WCHAR, ?*DWORD, ?*DWORD, ?*u8, ?*DWORD)   callconv(.winapi) LONG = undefined;
+pub var RegSetValueExW:  *const fn (HKEY, [*:0]const WCHAR, DWORD, DWORD, [*]const u8, DWORD)   callconv(.winapi) LONG = undefined;
+pub var RegDeleteValueW: *const fn (HKEY, [*:0]const WCHAR)                                      callconv(.winapi) LONG = undefined;
+pub var RegCloseKey:     *const fn (HKEY)                                                        callconv(.winapi) LONG = undefined;
 
 // Comptime UTF-8 → UTF-16LE string literal (replaces std.unicode dependency).
 fn countL(comptime s: []const u8) comptime_int {

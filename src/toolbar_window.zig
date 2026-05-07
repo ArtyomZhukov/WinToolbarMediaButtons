@@ -26,12 +26,14 @@ var g_margin_l  : w.INT = 0;   // physical left margin before first button
 var g_dragging      : bool  = false;
 var g_silence_ticks : u32   = 999;  // ticks since last non-zero peak; 999=unknown/paused
 
+inline fn sepPhys() w.INT { return @max(1, @divTrunc(g_dpi, 96)); }
+
 fn hitTest(x: w.INT) rend.HitZone {
     const ml  = g_margin_l;
     if (x < ml) return .none;
     const rx  = x - ml;
     const b   = g_btn_size;
-    const sep = @max(1, @divTrunc(g_dpi, 96));
+    const sep = sepPhys();
     if (rx < b          ) return .prev;
     if (rx < b * 2      ) return .play;
     if (rx < b * 3      ) return .next;
@@ -42,7 +44,7 @@ fn hitTest(x: w.INT) rend.HitZone {
 }
 
 fn sliderVolume(x: w.INT) f32 {
-    const sep     = @max(1, @divTrunc(g_dpi, 96));
+    const sep     = sepPhys();
     const sld_x0  = g_margin_l + 3 * g_btn_size + sep;
     const sld_w   = 4 * g_btn_size;
     const rel_x   = x - sld_x0;

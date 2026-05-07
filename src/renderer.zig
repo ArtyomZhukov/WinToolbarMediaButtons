@@ -117,20 +117,9 @@ fn initDWrite(phys_h: f32) void {
     }
 }
 
-// ── vtable shorthands ─────────────────────────────────────────────────────────
-
-inline fn vt(obj: *anyopaque) [*]const *const anyopaque {
-    return @as(*const [*]const *const anyopaque, @ptrCast(@alignCast(obj))).*;
-}
-inline fn qi(obj: *anyopaque, iid: *const GUID) ?*anyopaque {
-    var out: ?*anyopaque = null;
-    _ = @as(*const fn (*anyopaque, *const GUID, *?*anyopaque) callconv(.winapi) w.LONG,
-        @ptrCast(vt(obj)[0]))(obj, iid, &out);
-    return out;
-}
-inline fn rel(obj: *anyopaque) void {
-    _ = @as(*const fn (*anyopaque) callconv(.winapi) u32, @ptrCast(vt(obj)[2]))(obj);
-}
+const vt  = comp.vtbl;
+const qi  = comp.qi;
+const rel = comp.release;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -365,7 +354,7 @@ fn drawToolbar(ctx: *anyopaque) void {
             .prev  => &ICON_PREV,
             .play  => if (g_playing) &ICON_PAUSE else &ICON_PLAY,
             .next  => &ICON_NEXT,
-            else   => &ICON_PLAY,
+            else   => unreachable,
         };
         drawIcon(ctx, icon, slot, icon_br);
     }

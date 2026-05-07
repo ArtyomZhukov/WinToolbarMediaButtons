@@ -13,12 +13,8 @@ const IID_IAudioEndpointVolume = GUID{ .d1=0x5CDF2C82,.d2=0x841E,.d3=0x4546,.d4=
 const IID_IAudioMeterInfo      = GUID{ .d1=0xC02216F6,.d2=0x8C67,.d3=0x4B5B,.d4=.{0x9D,0x00,0xD0,0x08,0xE7,0x3E,0x00,0x64} };
 const CLSCTX_ALL: u32 = 0x17;
 
-inline fn vt(obj: *anyopaque) [*]const *const anyopaque {
-    return @as(*const [*]const *const anyopaque, @ptrCast(@alignCast(obj))).*;
-}
-inline fn rel(obj: *anyopaque) void {
-    _ = @as(*const fn (*anyopaque) callconv(.winapi) u32, @ptrCast(vt(obj)[2]))(obj);
-}
+const vt  = comp.vtbl;
+const rel = comp.release;
 
 var g_vol     : ?*anyopaque = null;  // IAudioEndpointVolume*
 var g_meter   : ?*anyopaque = null;  // IAudioMeterInformation*
