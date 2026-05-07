@@ -22,20 +22,17 @@ pub const IID_ICompositionTarget    = GUID{ .d1=0xA1BEA8BA,.d2=0xD726,.d3=0x4663
 // ── combase dynamic loading ───────────────────────────────────────────────────
 // combase.lib is not in Zig's bundled Windows SDK, so we load at runtime.
 
-const FnRoActivateInstance = *const fn (?*anyopaque, *?*anyopaque) callconv(.winapi) HRESULT;
+const FnRoActivateInstance  = *const fn (?*anyopaque, *?*anyopaque) callconv(.winapi) HRESULT;
 const FnWindowsCreateString = *const fn ([*]const u16, u32, *?*anyopaque) callconv(.winapi) HRESULT;
-const FnWindowsDeleteString = *const fn (?*anyopaque) callconv(.winapi) HRESULT;
 
-var g_ro_activate:    ?FnRoActivateInstance  = null;
-var g_create_string:  ?FnWindowsCreateString = null;
-var g_delete_string:  ?FnWindowsDeleteString = null;
+var g_ro_activate:   ?FnRoActivateInstance  = null;
+var g_create_string: ?FnWindowsCreateString = null;
 
 fn ensureCombase() bool {
     if (g_ro_activate != null) return true;
     const lib = w.loadLibrary("combase.dll") orelse return false;
     g_ro_activate   = @ptrCast(w.getProcAddress(lib, "RoActivateInstance"));
     g_create_string = @ptrCast(w.getProcAddress(lib, "WindowsCreateString"));
-    g_delete_string = @ptrCast(w.getProcAddress(lib, "WindowsDeleteString"));
     return g_ro_activate != null and g_create_string != null;
 }
 
@@ -64,13 +61,11 @@ pub fn release(obj: *anyopaque) void {
 pub fn activateCompositor() ?*anyopaque {
     if (!ensureCombase()) return null;
     const createStr  = g_create_string orelse return null;
-    const deleteStr  = g_delete_string;
     const roActivate = g_ro_activate   orelse return null;
 
     const class_name = w.L("Windows.UI.Composition.Compositor");
     var hs: ?*anyopaque = null;
     if (createStr(class_name, @intCast(class_name.len), &hs) != 0) return null;
-    defer if (deleteStr) |f| { _ = f(hs); };
 
     // RoActivateInstance gives an IInspectable* with refcount=1
     var raw: ?*anyopaque = null;

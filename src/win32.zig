@@ -135,7 +135,6 @@ pub var setWindowPos    : *const fn (HWND, HWND, INT, INT, INT, INT, UINT)      
 pub var getWindowRect   : *const fn (HWND, *RECT)                                                                             callconv(.winapi) BOOL    = undefined;
 pub var trackMouse      : *const fn (*TRACKMOUSEEVENT)                                                                        callconv(.winapi) BOOL    = undefined;
 pub var getCursorPos    : *const fn (*POINT)                                                                                  callconv(.winapi) BOOL    = undefined;
-pub var screenToClient  : *const fn (HWND, *POINT)                                                                           callconv(.winapi) BOOL    = undefined;
 pub var loadCursor      : *const fn (HINSTANCE, usize)                                                                       callconv(.winapi) HCURSOR = undefined;
 pub var getWindowLong   : *const fn (HWND, INT)                                                                              callconv(.winapi) LONG    = undefined;
 pub var setWindowLong   : *const fn (HWND, INT, LONG)                                                                        callconv(.winapi) LONG    = undefined;
@@ -167,7 +166,6 @@ pub fn initWin32() void {
     getWindowRect    = @ptrCast(GetProcAddress(huser32, "GetWindowRect").?);
     trackMouse       = @ptrCast(GetProcAddress(huser32, "TrackMouseEvent").?);
     getCursorPos     = @ptrCast(GetProcAddress(huser32, "GetCursorPos").?);
-    screenToClient   = @ptrCast(GetProcAddress(huser32, "ScreenToClient").?);
     loadCursor       = @ptrCast(GetProcAddress(huser32, "LoadCursorW").?);
     getWindowLong    = @ptrCast(GetProcAddress(huser32, "GetWindowLongW").?);
     setWindowLong    = @ptrCast(GetProcAddress(huser32, "SetWindowLongW").?);

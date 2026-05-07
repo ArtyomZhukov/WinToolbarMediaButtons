@@ -56,7 +56,6 @@ const BitmapProperties1 = extern struct {
     dpiX:          f32,
     dpiY:          f32,
     bitmapOptions: i32,
-    _pad:          i32,
     colorContext:  ?*anyopaque,
 };
 
@@ -124,7 +123,6 @@ const rel = comp.release;
 
 var g_sc      : ?*anyopaque = null;   // IDXGISwapChain1*
 var g_ctx     : ?*anyopaque = null;   // ID2D1DeviceContext*
-var g_w       : u32 = 0;
 var g_h       : u32 = 0;
 var g_btn     : u32 = 0;
 var g_gap     : u32 = 2;
@@ -149,46 +147,46 @@ pub fn setPlaying(p: bool) bool {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u32, btn_size: u32, gap: u32, margin_l: u32) bool {
-    if (!loadLibs()) return false;
+pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u32, btn_size: u32, gap: u32, margin_l: u32) void {
+    if (!loadLibs()) w.exit(1);
 
     var d3d: ?*anyopaque = null;
     if (fn_d3d11.?(null, D3D_DRIVER_TYPE_HARDWARE, null, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
             null, 0, D3D11_SDK_VERSION, &d3d, null, null) != 0)
         _ = fn_d3d11.?(null, D3D_DRIVER_TYPE_WARP, null, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
             null, 0, D3D11_SDK_VERSION, &d3d, null, null);
-    const d3d_dev = d3d orelse return false;
+    const d3d_dev = d3d orelse w.exit(1);
     defer rel(d3d_dev);
 
-    const dxgi_dev = qi(d3d_dev, &IID_IDXGIDevice) orelse return false;
+    const dxgi_dev = qi(d3d_dev, &IID_IDXGIDevice) orelse w.exit(1);
     defer rel(dxgi_dev);
 
     var fptr: ?*anyopaque = null;
-    if (fn_d2d1.?(0, &IID_ID2D1Factory1, null, &fptr) != 0) return false;
-    const fact = fptr orelse return false;
+    if (fn_d2d1.?(0, &IID_ID2D1Factory1, null, &fptr) != 0) w.exit(1);
+    const fact = fptr orelse w.exit(1);
     defer rel(fact);
 
     var d2d_dev: ?*anyopaque = null;
     if (@as(*const fn (*anyopaque, *anyopaque, *?*anyopaque) callconv(.winapi) w.LONG,
-            @ptrCast(vt(fact)[17]))(fact, dxgi_dev, &d2d_dev) != 0) return false;
-    const ddev = d2d_dev orelse return false;
+            @ptrCast(vt(fact)[17]))(fact, dxgi_dev, &d2d_dev) != 0) w.exit(1);
+    const ddev = d2d_dev orelse w.exit(1);
     defer rel(ddev);
 
     var ctx: ?*anyopaque = null;
     if (@as(*const fn (*anyopaque, i32, *?*anyopaque) callconv(.winapi) w.LONG,
-            @ptrCast(vt(ddev)[4]))(ddev, 0, &ctx) != 0) return false;
-    const d2d_ctx = ctx orelse return false;
+            @ptrCast(vt(ddev)[4]))(ddev, 0, &ctx) != 0) w.exit(1);
+    const d2d_ctx = ctx orelse w.exit(1);
 
     var adp: ?*anyopaque = null;
     if (@as(*const fn (*anyopaque, *?*anyopaque) callconv(.winapi) w.LONG,
-            @ptrCast(vt(dxgi_dev)[7]))(dxgi_dev, &adp) != 0) { rel(d2d_ctx); return false; }
-    const adapter = adp orelse { rel(d2d_ctx); return false; };
+            @ptrCast(vt(dxgi_dev)[7]))(dxgi_dev, &adp) != 0) w.exit(1);
+    const adapter = adp orelse w.exit(1);
     defer rel(adapter);
 
     var f2: ?*anyopaque = null;
     if (@as(*const fn (*anyopaque, *const GUID, *?*anyopaque) callconv(.winapi) w.LONG,
-            @ptrCast(vt(adapter)[6]))(adapter, &IID_IDXGIFactory2, &f2) != 0) { rel(d2d_ctx); return false; }
-    const factory2 = f2 orelse { rel(d2d_ctx); return false; };
+            @ptrCast(vt(adapter)[6]))(adapter, &IID_IDXGIFactory2, &f2) != 0) w.exit(1);
+    const factory2 = f2 orelse w.exit(1);
     defer rel(factory2);
 
     const desc = SwapChainDesc{
@@ -201,30 +199,24 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
     };
     var sc: ?*anyopaque = null;
     if (@as(*const fn (*anyopaque, *anyopaque, *const SwapChainDesc, ?*anyopaque, *?*anyopaque) callconv(.winapi) w.LONG,
-            @ptrCast(vt(factory2)[24]))(factory2, dxgi_dev, &desc, null, &sc) != 0) { rel(d2d_ctx); return false; }
-    const swap_chain = sc orelse { rel(d2d_ctx); return false; };
+            @ptrCast(vt(factory2)[24]))(factory2, dxgi_dev, &desc, null, &sc) != 0) w.exit(1);
+    const swap_chain = sc orelse w.exit(1);
 
-    const csurf = comp.createCompositionSurfaceForSwapChain(compositor, swap_chain) orelse {
-        rel(d2d_ctx); rel(swap_chain); return false;
-    };
+    const csurf = comp.createCompositionSurfaceForSwapChain(compositor, swap_chain) orelse w.exit(1);
     defer comp.release(csurf);
 
-    const brush = comp.createSurfaceBrush(compositor, csurf) orelse {
-        rel(d2d_ctx); rel(swap_chain); return false;
-    };
+    const brush = comp.createSurfaceBrush(compositor, csurf) orelse w.exit(1);
     comp.surfaceBrushSetStretch(brush);
     comp.spriteSetBrush(root_vis, brush);
     comp.release(brush);
 
     g_sc  = swap_chain;
     g_ctx = d2d_ctx;
-    g_w   = width;
     g_h   = height;
     g_btn = btn_size;
     g_gap = gap;
     g_ml  = margin_l;
     initDWrite(@floatFromInt(btn_size));
-    return true;
 }
 
 // ── D2D1 draw helpers ─────────────────────────────────────────────────────────
@@ -268,7 +260,7 @@ pub fn render() void {
         .format = DXGI_FORMAT_B8G8R8A8_UNORM, .alphaMode = 1,
         .dpiX = 96, .dpiY = 96,
         .bitmapOptions = 3,
-        ._pad = 0, .colorContext = null,
+        .colorContext = null,
     };
     var bm: ?*anyopaque = null;
     if (@as(*const fn (*anyopaque, *anyopaque, *const BitmapProperties1, *?*anyopaque) callconv(.winapi) w.LONG,
@@ -288,12 +280,10 @@ pub fn render() void {
 }
 
 fn drawToolbar(ctx: *anyopaque) void {
-    const W: f32  = @floatFromInt(g_w);
     const H: f32  = @floatFromInt(g_h);
     const B: f32  = @floatFromInt(g_btn);
     const g: f32  = @floatFromInt(g_gap);
     const ml: f32 = @floatFromInt(g_ml);
-    const sep: f32 = W - 8.0*B - ml - ml;
     const vy: f32     = (H - B) / 2.0;
     const radius: f32 = (B - 2.0*g) * 0.22;
 
@@ -336,7 +326,7 @@ fn drawToolbar(ctx: *anyopaque) void {
     defer rel(sld_n);
     const sld_hv = createBrush(ctx, .{ .r=0.033, .g=0.033, .b=0.033, .a=0.18  }) orelse return;
     defer rel(sld_hv);
-    const sld_x0   = ml + 3.0 * B + sep;
+    const sld_x0   = ml + 3.0 * B;
     const sld_slot = RectF{ .left=sld_x0+g, .top=vy+g, .right=sld_x0+4.0*B-g, .bottom=vy+B-g };
     fillRoundedRect(ctx, .{ .rect=sld_slot, .radiusX=radius, .radiusY=radius },
         if (g_hover == .slider) sld_hv else sld_n);
