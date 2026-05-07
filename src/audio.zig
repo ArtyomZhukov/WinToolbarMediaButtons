@@ -1,6 +1,3 @@
-// WASAPI volume + peak meter via dynamic COM loading.
-// Lazy-initialises on first use.
-
 const w    = @import("win32.zig");
 const comp = @import("composition.zig");
 
@@ -16,52 +13,38 @@ const CLSCTX_ALL: u32 = 0x17;
 const vt  = comp.vtbl;
 const rel = comp.release;
 
-var g_vol     : ?*anyopaque = null;  // IAudioEndpointVolume*
-var g_meter   : ?*anyopaque = null;  // IAudioMeterInformation*
+var g_vol   : ?*anyopaque = null;
+var g_meter : ?*anyopaque = null;
 
-fn ensureVol() bool {
-    if (g_vol != null) return true;
-    const lib = w.loadLibrary("ole32.dll") orelse return false;
-    const proc = w.getProcAddress(lib, "CoCreateInstance") orelse return false;
+pub fn init() void {
+    const lib  = w.loadLibrary("ole32.dll") orelse return;
+    const proc = w.getProcAddress(lib, "CoCreateInstance") orelse return;
     const FnCoCreate = *const fn (*const GUID, ?*anyopaque, u32, *const GUID, *?*anyopaque) callconv(.winapi) HRESULT;
 
     var en_raw: ?*anyopaque = null;
-    if (@as(FnCoCreate, @ptrCast(proc))(&CLSID_MMDeviceEnumerator, null, CLSCTX_ALL, &IID_IMMDeviceEnumerator, &en_raw) != 0) return false;
-    const en = en_raw orelse return false;
+    if (@as(FnCoCreate, @ptrCast(proc))(&CLSID_MMDeviceEnumerator, null, CLSCTX_ALL, &IID_IMMDeviceEnumerator, &en_raw) != 0) return;
+    const en = en_raw orelse return;
     defer rel(en);
 
     const FnGetDef = *const fn (*anyopaque, i32, i32, *?*anyopaque) callconv(.winapi) HRESULT;
     var dev_raw: ?*anyopaque = null;
-    if (@as(FnGetDef, @ptrCast(vt(en)[4]))(en, 0, 1, &dev_raw) != 0) return false;
-    const dev = dev_raw orelse return false;
+    if (@as(FnGetDef, @ptrCast(vt(en)[4]))(en, 0, 1, &dev_raw) != 0) return;
+    const dev = dev_raw orelse return;
     defer rel(dev);
 
     const FnActivate = *const fn (*anyopaque, *const GUID, u32, ?*anyopaque, *?*anyopaque) callconv(.winapi) HRESULT;
 
     var vol_raw: ?*anyopaque = null;
-    if (@as(FnActivate, @ptrCast(vt(dev)[3]))(dev, &IID_IAudioEndpointVolume, CLSCTX_ALL, null, &vol_raw) != 0) return false;
+    if (@as(FnActivate, @ptrCast(vt(dev)[3]))(dev, &IID_IAudioEndpointVolume, CLSCTX_ALL, null, &vol_raw) != 0) return;
     g_vol = vol_raw;
 
-    // Also grab IAudioMeterInformation while we hold the device
     var meter_raw: ?*anyopaque = null;
     _ = @as(FnActivate, @ptrCast(vt(dev)[3]))(dev, &IID_IAudioMeterInfo, CLSCTX_ALL, null, &meter_raw);
     g_meter = meter_raw;
-
-    return true;
 }
 
-pub fn init() void { _ = ensureVol(); }
-
-fn getVol() ?*anyopaque { return g_vol; }
-
-// IAudioEndpointVolume vtable:
-//  [7]  SetMasterVolumeLevelScalar(f32, *GUID)
-//  [9]  GetMasterVolumeLevelScalar(*f32)
-//  [14] SetMute(BOOL, *GUID)
-//  [15] GetMute(*BOOL)
-
 pub fn getVolume() f32 {
-    const vol = getVol() orelse return 0;
+    const vol = g_vol orelse return 0;
     var level: f32 = 0;
     _ = @as(*const fn (*anyopaque, *f32) callconv(.winapi) HRESULT,
         @ptrCast(vt(vol)[9]))(vol, &level);
@@ -69,14 +52,14 @@ pub fn getVolume() f32 {
 }
 
 pub fn setVolume(level: f32) void {
-    const vol = getVol() orelse return;
+    const vol = g_vol orelse return;
     const clamped = @max(0.0, @min(1.0, level));
     _ = @as(*const fn (*anyopaque, f32, ?*anyopaque) callconv(.winapi) HRESULT,
         @ptrCast(vt(vol)[7]))(vol, clamped, null);
 }
 
 pub fn getMute() bool {
-    const vol = getVol() orelse return false;
+    const vol = g_vol orelse return false;
     var muted: i32 = 0;
     _ = @as(*const fn (*anyopaque, *i32) callconv(.winapi) HRESULT,
         @ptrCast(vt(vol)[15]))(vol, &muted);
@@ -84,7 +67,7 @@ pub fn getMute() bool {
 }
 
 pub fn toggleMute() void {
-    const vol = getVol() orelse return;
+    const vol = g_vol orelse return;
     var muted: i32 = 0;
     _ = @as(*const fn (*anyopaque, *i32) callconv(.winapi) HRESULT,
         @ptrCast(vt(vol)[15]))(vol, &muted);
@@ -92,9 +75,6 @@ pub fn toggleMute() void {
         @ptrCast(vt(vol)[14]))(vol, 1 - muted, null);
 }
 
-
-// IAudioMeterInformation::GetPeak [vtable[3]] → peak amplitude 0.0–1.0.
-// Returns 0 if meter not available.
 pub fn getPeak() f32 {
     const m = g_meter orelse return 0;
     var peak: f32 = 0;
