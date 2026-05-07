@@ -35,8 +35,6 @@ pub const WM_LBUTTONUP   = 0x0202;
 pub const WM_RBUTTONDOWN = 0x0204;
 pub const WM_MOUSELEAVE  = 0x02A3;
 pub const WM_QUIT        = 0x0012;
-pub const WM_APP         = 0x8000;
-pub const WM_TRAY        = WM_APP + 1;
 
 pub const WS_CHILD        : DWORD = 0x40000000;
 pub const WS_POPUP        : DWORD = 0x80000000;
@@ -89,7 +87,6 @@ extern "kernel32" fn ExitProcess(UINT) callconv(.winapi) noreturn;
 extern "kernel32" fn GetModuleHandleW(?[*:0]const WCHAR) callconv(.winapi) HMODULE;
 extern "kernel32" fn LoadLibraryA([*:0]const u8) callconv(.winapi) HMODULE;
 extern "kernel32" fn GetProcAddress(HMODULE, [*:0]const u8) callconv(.winapi) ?*anyopaque;
-extern "kernel32" fn GetModuleFileNameW(HMODULE, [*]WCHAR, DWORD) callconv(.winapi) DWORD;
 
 pub const TME_LEAVE : DWORD = 0x00000002;
 pub const TRACKMOUSEEVENT = extern struct {
@@ -119,7 +116,6 @@ pub const exit              = ExitProcess;
 pub const getModuleHandle   = GetModuleHandleW;
 pub const loadLibrary       = LoadLibraryA;
 pub const getProcAddress    = GetProcAddress;
-pub const getModuleFileName = GetModuleFileNameW;
 
 // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = (HANDLE)(LONG_PTR)-4
 pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: HANDLE =
@@ -150,17 +146,14 @@ pub var keybdEvent      : *const fn (BYTE, BYTE, DWORD, usize)                  
 pub var setCapture      : *const fn (HWND)                                                                                   callconv(.winapi) HWND    = undefined;
 pub var releaseCapture  : *const fn ()                                                                                       callconv(.winapi) BOOL    = undefined;
 pub var setTimer        : *const fn (HWND, usize, UINT, ?*anyopaque)                                                        callconv(.winapi) usize   = undefined;
-pub var Shell_NotifyIconW        : *const fn (DWORD, *anyopaque)                                                            callconv(.winapi) BOOL    = undefined;
 pub var CreatePopupMenu          : *const fn ()                                                                             callconv(.winapi) HMENU   = undefined;
 pub var AppendMenuA              : *const fn (HMENU, UINT, usize, ?[*:0]const u8)                                          callconv(.winapi) BOOL    = undefined;
 pub var TrackPopupMenu           : *const fn (HMENU, UINT, INT, INT, INT, HWND, ?*anyopaque)                               callconv(.winapi) BOOL    = undefined;
 pub var DestroyMenu              : *const fn (HMENU)                                                                       callconv(.winapi) BOOL    = undefined;
 pub var SetForegroundWindow      : *const fn (HWND)                                                                        callconv(.winapi) BOOL    = undefined;
-pub var CreateIconFromResourceEx : *const fn (?[*]const u8, DWORD, BOOL, DWORD, INT, INT, UINT) callconv(.winapi) HICON   = undefined;
 
 pub fn initWin32() void {
-    const huser32  = LoadLibraryA("user32.dll")  orelse return;
-    const hshell32 = LoadLibraryA("shell32.dll") orelse return;
+    const huser32 = LoadLibraryA("user32.dll") orelse return;
     setDpiAwareness  = @ptrCast(GetProcAddress(huser32, "SetProcessDpiAwarenessContext").?);
     getMsg           = @ptrCast(GetProcAddress(huser32, "GetMessageW").?);
     translate        = @ptrCast(GetProcAddress(huser32, "TranslateMessage").?);
@@ -190,29 +183,8 @@ pub fn initWin32() void {
     TrackPopupMenu          = @ptrCast(GetProcAddress(huser32, "TrackPopupMenu").?);
     DestroyMenu             = @ptrCast(GetProcAddress(huser32, "DestroyMenu").?);
     SetForegroundWindow     = @ptrCast(GetProcAddress(huser32, "SetForegroundWindow").?);
-    CreateIconFromResourceEx = @ptrCast(GetProcAddress(huser32, "CreateIconFromResourceEx").?);
-    Shell_NotifyIconW        = @ptrCast(GetProcAddress(hshell32, "Shell_NotifyIconW").?);
-    const hadvapi32 = LoadLibraryA("advapi32.dll") orelse return;
-    RegOpenKeyExW    = @ptrCast(GetProcAddress(hadvapi32, "RegOpenKeyExW").?);
-    RegQueryValueExW = @ptrCast(GetProcAddress(hadvapi32, "RegQueryValueExW").?);
-    RegSetValueExW   = @ptrCast(GetProcAddress(hadvapi32, "RegSetValueExW").?);
-    RegDeleteValueW  = @ptrCast(GetProcAddress(hadvapi32, "RegDeleteValueW").?);
-    RegCloseKey      = @ptrCast(GetProcAddress(hadvapi32, "RegCloseKey").?);
 }
 
-// Registry
-pub const HKEY = ?*opaque {};
-pub const HKEY_CURRENT_USER: HKEY = @ptrFromInt(0x80000001);
-pub const KEY_QUERY_VALUE: DWORD = 0x0001;
-pub const KEY_SET_VALUE:   DWORD = 0x0002;
-pub const REG_SZ:          DWORD = 1;
-
-// advapi32 — registry functions, loaded by initWin32()
-pub var RegOpenKeyExW:   *const fn (HKEY, [*:0]const WCHAR, DWORD, DWORD, *HKEY)                 callconv(.winapi) LONG = undefined;
-pub var RegQueryValueExW: *const fn (HKEY, [*:0]const WCHAR, ?*DWORD, ?*DWORD, ?*u8, ?*DWORD)   callconv(.winapi) LONG = undefined;
-pub var RegSetValueExW:  *const fn (HKEY, [*:0]const WCHAR, DWORD, DWORD, [*]const u8, DWORD)   callconv(.winapi) LONG = undefined;
-pub var RegDeleteValueW: *const fn (HKEY, [*:0]const WCHAR)                                      callconv(.winapi) LONG = undefined;
-pub var RegCloseKey:     *const fn (HKEY)                                                        callconv(.winapi) LONG = undefined;
 
 // Comptime UTF-8 → UTF-16LE string literal (replaces std.unicode dependency).
 fn countL(comptime s: []const u8) comptime_int {

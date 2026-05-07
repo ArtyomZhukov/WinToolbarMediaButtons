@@ -31,8 +31,7 @@ const TPM_RIGHTBUTTON: w.UINT = 0x0002;
 const TPM_RETURNCMD:   w.UINT = 0x0100;
 const TPM_NONOTIFY:    w.UINT = 0x0080;
 
-const ID_AUTOSTART : w.UINT = 1001;
-const ID_EXIT      : w.UINT = 1002;
+const ID_EXIT : w.UINT = 1001;
 
 
 // ICO-файл встроен прямо в бинарь
@@ -47,10 +46,7 @@ fn loadEmbeddedIcon() w.HICON {
     );
 }
 
-// Autostart callbacks (implemented in autostart.zig, wired in main)
-pub var isAutostartEnabled: *const fn () bool = undefined;
-pub var toggleAutostart:    *const fn () void = undefined;
-pub var quitFn:             *const fn () void = undefined;
+pub var quitFn: *const fn () void = undefined;
 
 var g_nid: NOTIFYICONDATAW = undefined;
 var g_hwnd: w.HWND = null;
@@ -82,13 +78,6 @@ fn showMenu() void {
     const menu = w.CreatePopupMenu() orelse return;
     defer _ = w.DestroyMenu(menu);
 
-    const autostart_text: [*:0]const u8 = if (isAutostartEnabled())
-        "Autostart: off"
-    else
-        "Autostart: on";
-
-    _ = w.AppendMenuA(menu, MF_STRING, ID_AUTOSTART, autostart_text);
-    _ = w.AppendMenuA(menu, MF_SEPARATOR, 0, null);
     _ = w.AppendMenuA(menu, MF_STRING, ID_EXIT, "Quit");
 
     var pt: w.POINT = undefined;
@@ -102,9 +91,7 @@ fn showMenu() void {
         g_hwnd, null,
     );
 
-    if (cmd == @as(w.BOOL, @intCast(ID_AUTOSTART))) {
-        toggleAutostart();
-    } else if (cmd == @as(w.BOOL, @intCast(ID_EXIT))) {
+    if (cmd == @as(w.BOOL, @intCast(ID_EXIT))) {
         quitFn();
     }
 }

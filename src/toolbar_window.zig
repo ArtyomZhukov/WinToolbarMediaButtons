@@ -1,9 +1,7 @@
-const w     = @import("win32.zig");
-const tray  = @import("tray.zig");
-const comp  = @import("composition.zig");
-const rend  = @import("renderer.zig");
+const w    = @import("win32.zig");
+const comp = @import("composition.zig");
+const rend = @import("renderer.zig");
 const audio = @import("audio.zig");
-const smtc  = @import("smtc.zig");
 // Toolbar dimensions (logical pixels, same as C# version)
 pub const TOOLBAR_H : w.INT = 40;
 pub const BTN_W     : w.INT = 40;
@@ -83,7 +81,6 @@ fn tryCreateDispatcherQueue() void {
 pub fn create(hinstance: w.HINSTANCE) !w.HWND {
     // Required for Windows.UI.Composition on this thread
     tryCreateDispatcherQueue();
-    smtc.init();
 
     // Register window class
     const wc = w.WNDCLASSEXW{
@@ -203,21 +200,26 @@ fn wndProc(hwnd: w.HWND, msg: w.UINT, wp: w.WPARAM, lp: w.LPARAM) callconv(.wina
             }
         },
 
-        w.WM_TRAY  => tray.handleTrayMessage(lp),
+        w.WM_RBUTTONDOWN => {
+            const menu = w.CreatePopupMenu() orelse return w.defWndProc(hwnd, msg, wp, lp);
+            defer _ = w.DestroyMenu(menu);
+            _ = w.AppendMenuA(menu, 0, 1, "Quit");
+            var pt: w.POINT = undefined;
+            _ = w.getCursorPos(&pt);
+            _ = w.SetForegroundWindow(hwnd);
+            if (w.TrackPopupMenu(menu, 0x0002 | 0x0100 | 0x0080, pt.x, pt.y, 0, hwnd, null) == 1) {
+                w.postQuit(0);
+            }
+        },
 
         w.WM_TIMER => {
-            smtc.poll();
-            if (smtc.isAvailable()) {
-                _ = rend.setPlaying(smtc.isPlaying());
+            const peak = audio.getPeak();
+            if (peak > 0.001) {
+                g_silence_ticks = 0;
+                _ = rend.setPlaying(true);
             } else {
-                const peak = audio.getPeak();
-                if (peak > 0.001) {
-                    g_silence_ticks = 0;
-                    _ = rend.setPlaying(true);
-                } else {
-                    if (g_silence_ticks < 6) g_silence_ticks += 1;
-                    if (g_silence_ticks >= 6) _ = rend.setPlaying(false);
-                }
+                if (g_silence_ticks < 6) g_silence_ticks += 1;
+                if (g_silence_ticks >= 6) _ = rend.setPlaying(false);
             }
             rend.render();
         },

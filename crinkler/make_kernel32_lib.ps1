@@ -33,7 +33,6 @@ $entries = @(
     @("KERNEL32.DLL", "_LoadLibraryW@4"),
     @("KERNEL32.DLL", "_GetProcAddress@8"),
     @("KERNEL32.DLL", "_LoadLibraryA@4"),
-    @("KERNEL32.DLL", "_GetModuleFileNameW@12"),
     @("USER32.DLL",   "_MessageBoxA@16")
 )
 
