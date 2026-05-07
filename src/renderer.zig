@@ -15,7 +15,6 @@ const DXGI_ALPHA_MODE_PREMULTIPLIED  : i32 = 1;
 const DXGI_SCALING_STRETCH           : i32 = 0;
 const D3D11_SDK_VERSION              : u32 = 7;
 const D3D_DRIVER_TYPE_HARDWARE       : i32 = 1;
-const D3D_DRIVER_TYPE_WARP           : i32 = 5;
 const D3D11_CREATE_DEVICE_BGRA_SUPPORT: u32 = 0x20;
 
 // ── GUIDs ─────────────────────────────────────────────────────────────────────
@@ -66,17 +65,6 @@ const FnD3D11 = *const fn (?*anyopaque, i32, ?*anyopaque, u32, ?*anyopaque, u32,
     *?*anyopaque, ?*anyopaque, ?*anyopaque) callconv(.winapi) w.LONG;
 const FnD2D1  = *const fn (i32, *const GUID, ?*anyopaque, *?*anyopaque) callconv(.winapi) w.LONG;
 
-var fn_d3d11: ?FnD3D11 = null;
-var fn_d2d1:  ?FnD2D1  = null;
-
-fn loadLibs() bool {
-    if (fn_d3d11 != null) return true;
-    const l3 = w.loadLibrary("d3d11.dll") orelse return false;
-    const l2 = w.loadLibrary("d2d1.dll")  orelse return false;
-    fn_d3d11 = @ptrCast(w.getProcAddress(l3, "D3D11CreateDevice"));
-    fn_d2d1  = @ptrCast(w.getProcAddress(l2, "D2D1CreateFactory"));
-    return fn_d3d11 != null and fn_d2d1 != null;
-}
 
 fn initDWrite(phys_h: f32) void {
     const lib = w.loadLibrary("dwrite.dll") orelse return;
@@ -113,7 +101,6 @@ var g_sc      : ?*anyopaque = null;   // IDXGISwapChain1*
 var g_ctx     : ?*anyopaque = null;   // ID2D1DeviceContext*
 var g_h       : u32 = 0;
 var g_btn     : u32 = 0;
-var g_gap     : u32 = 2;
 var g_ml      : u32 = 0;
 var g_hover   : HitZone = .none;
 var g_dw_fmt  : ?*anyopaque = null;
@@ -134,14 +121,15 @@ pub fn setPlaying(p: bool) bool {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u32, btn_size: u32, gap: u32, margin_l: u32) void {
-    if (!loadLibs()) w.exit(1);
+pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u32, btn_size: u32, margin_l: u32) void {
+    const l3 = w.loadLibrary("d3d11.dll") orelse w.exit(1);
+    const l2 = w.loadLibrary("d2d1.dll")  orelse w.exit(1);
+    const fn_d3d11: FnD3D11 = @ptrCast(w.getProcAddress(l3, "D3D11CreateDevice") orelse w.exit(1));
+    const fn_d2d1:  FnD2D1  = @ptrCast(w.getProcAddress(l2, "D2D1CreateFactory") orelse w.exit(1));
 
     var d3d: ?*anyopaque = null;
-    if (fn_d3d11.?(null, D3D_DRIVER_TYPE_HARDWARE, null, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-            null, 0, D3D11_SDK_VERSION, &d3d, null, null) != 0)
-        _ = fn_d3d11.?(null, D3D_DRIVER_TYPE_WARP, null, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-            null, 0, D3D11_SDK_VERSION, &d3d, null, null);
+    if (fn_d3d11(null, D3D_DRIVER_TYPE_HARDWARE, null, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+            null, 0, D3D11_SDK_VERSION, &d3d, null, null) != 0) w.exit(1);
     const d3d_dev = d3d orelse w.exit(1);
     defer rel(d3d_dev);
 
@@ -149,7 +137,7 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
     defer rel(dxgi_dev);
 
     var fptr: ?*anyopaque = null;
-    if (fn_d2d1.?(0, &IID_ID2D1Factory1, null, &fptr) != 0) w.exit(1);
+    if (fn_d2d1(0, &IID_ID2D1Factory1, null, &fptr) != 0) w.exit(1);
     const fact = fptr orelse w.exit(1);
     defer rel(fact);
 
@@ -201,7 +189,6 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
     g_ctx = d2d_ctx;
     g_h   = height;
     g_btn = btn_size;
-    g_gap = gap;
     g_ml  = margin_l;
     initDWrite(@floatFromInt(btn_size));
 }
@@ -264,9 +251,9 @@ pub fn render() void {
 fn drawToolbar(ctx: *anyopaque) void {
     const H: f32  = @floatFromInt(g_h);
     const B: f32  = @floatFromInt(g_btn);
-    const g: f32  = @floatFromInt(g_gap);
     const ml: f32 = @floatFromInt(g_ml);
-    const vy: f32     = (H - B) / 2.0;
+    const vy: f32 = (H - B) / 2.0;
+    const g        = vy;
     const radius: f32 = (B - 2.0*g) * 0.22;
 
     @as(*const fn (*anyopaque, *const ColorF) callconv(.winapi) void,
@@ -304,14 +291,10 @@ fn drawToolbar(ctx: *anyopaque) void {
     }
 
     // Slider background (4B wide, starts right after the three buttons)
-    const sld_n  = createBrush(ctx, .{ .r=0.019, .g=0.019, .b=0.019, .a=0.137 }) orelse return;
-    defer rel(sld_n);
-    const sld_hv = createBrush(ctx, .{ .r=0.132, .g=0.132, .b=0.132, .a=0.72  }) orelse return;
-    defer rel(sld_hv);
     const sld_x0   = ml + 3.0 * B;
     const sld_slot = RectF{ .left=sld_x0+g, .top=vy+g, .right=sld_x0+4.0*B-g, .bottom=vy+B-g };
     fillRoundedRect(ctx, .{ .rect=sld_slot, .radiusX=radius, .radiusY=radius },
-        if (g_hover == .slider) sld_hv else sld_n);
+        if (g_hover == .slider) btn_hv else btn_n);
 
     // Volume fill bar
     if (volume > 0.005) {

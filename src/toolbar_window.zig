@@ -6,7 +6,6 @@ const audio = @import("audio.zig");
 const CLASS_NAME = w.L("WTMB");
 
 var g_btn_size  : w.INT = 32;
-var g_gap       : w.INT = 2;
 var g_margin_l  : w.INT = 0;
 var g_dragging      : bool = false;
 var g_silence_ticks : u32  = 999;
@@ -81,10 +80,8 @@ pub fn create(hinstance: w.HINSTANCE) void {
     const pad_phys  = @max(1, @divTrunc(4 * dpi, 96));
     const btn_size  = actual_h - 2 * pad_phys;
     g_btn_size      = btn_size;
-    const gap_phys: w.INT  = @max(1, @divTrunc(4 * dpi, 96));
     const margin_r: w.INT  = @max(2, @divTrunc(8 * dpi, 96));
     const margin_l: w.INT  = margin_r;
-    g_gap      = gap_phys;
     g_margin_l = margin_l;
     const toolbar_w_phys = 8 * btn_size + margin_l + margin_r;
 
@@ -123,7 +120,8 @@ pub fn create(hinstance: w.HINSTANCE) void {
     _ = w.setWindowPos(hwnd, null, 0, 0, toolbar_w_phys, actual_h,
         w.SWP_NOACTIVATE | w.SWP_FRAMECHANGED);
 
-    rend.init(compositor, spr, @intCast(toolbar_w_phys), @intCast(actual_h), @intCast(btn_size), @intCast(gap_phys), @intCast(margin_l));
+    audio.init();
+    rend.init(compositor, spr, @intCast(toolbar_w_phys), @intCast(actual_h), @intCast(btn_size), @intCast(margin_l));
     rend.render();
 
     _ = w.setTimer(hwnd, 1, 500, null);

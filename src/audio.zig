@@ -50,10 +50,9 @@ fn ensureVol() bool {
     return true;
 }
 
-fn getVol() ?*anyopaque {
-    if (g_vol == null) _ = ensureVol();
-    return g_vol;
-}
+pub fn init() void { _ = ensureVol(); }
+
+fn getVol() ?*anyopaque { return g_vol; }
 
 // IAudioEndpointVolume vtable:
 //  [7]  SetMasterVolumeLevelScalar(f32, *GUID)
@@ -97,7 +96,6 @@ pub fn toggleMute() void {
 // IAudioMeterInformation::GetPeak [vtable[3]] → peak amplitude 0.0–1.0.
 // Returns 0 if meter not available.
 pub fn getPeak() f32 {
-    if (g_meter == null) _ = ensureVol();
     const m = g_meter orelse return 0;
     var peak: f32 = 0;
     _ = @as(*const fn (*anyopaque, *f32) callconv(.winapi) HRESULT,
