@@ -281,16 +281,15 @@ fn drawToolbar(ctx: *anyopaque) void {
     const is_muted = audio.getMute();
     const volume   = audio.getVolume();
 
-    const play_green: ?*anyopaque = if (g_playing)
-        createBrush(ctx, .{ .r=0.0, .g=0.60, .b=0.22, .a=0.28 }) else null;
-    defer if (play_green) |b| rel(b);
+    const play_green = createBrush(ctx, .{ .r=0.0, .g=0.60, .b=0.22, .a=0.28 }) orelse return;
+    defer rel(play_green);
 
     // Three media buttons
     for ([3]HitZone{ .prev, .play, .next }, 0..) |zone, i| {
         const bx   = ml + @as(f32, @floatFromInt(i)) * B;
         const slot = RectF{ .left=bx+g, .top=vy+g, .right=bx+B-g, .bottom=vy+B-g };
-        const bg: *anyopaque = if (zone == .play and play_green != null)
-            play_green.?
+        const bg: *anyopaque = if (zone == .play and g_playing)
+            play_green
         else if (g_hover == zone) btn_hv else btn_n;
         fillRoundedRect(ctx, .{ .rect=slot, .radiusX=radius, .radiusY=radius }, bg);
         const icon: []const u16 = switch (zone) {
@@ -309,23 +308,20 @@ fn drawToolbar(ctx: *anyopaque) void {
         if (g_hover == .slider) btn_hv else btn_n);
 
     // Volume fill bar
-    if (volume > 0.005) {
-        const fill_w  = (sld_slot.right - sld_slot.left) * volume;
-        const fill_br = createBrush(ctx, .{ .r=0.60, .g=0.60, .b=0.60, .a=0.60 }) orelse return;
-        defer rel(fill_br);
-        fillRoundedRect(ctx, .{ .rect=.{ .left=sld_slot.left, .top=sld_slot.top,
-                         .right=sld_slot.left+fill_w, .bottom=sld_slot.bottom },
-                         .radiusX=radius, .radiusY=radius }, fill_br);
-    }
+    const fill_br = createBrush(ctx, .{ .r=0.60, .g=0.60, .b=0.60, .a=0.60 }) orelse return;
+    defer rel(fill_br);
+    const fill_w = (sld_slot.right - sld_slot.left) * volume;
+    fillRoundedRect(ctx, .{ .rect=.{ .left=sld_slot.left, .top=sld_slot.top,
+                     .right=sld_slot.left+fill_w, .bottom=sld_slot.bottom },
+                     .radiusX=radius, .radiusY=radius }, fill_br);
 
     // Volume button — red when muted
-    const vol_red: ?*anyopaque = if (is_muted)
-        createBrush(ctx, .{ .r=0.65, .g=0.0, .b=0.0, .a=0.28 }) else null;
-    defer if (vol_red) |b| rel(b);
+    const vol_red = createBrush(ctx, .{ .r=0.65, .g=0.0, .b=0.0, .a=0.28 }) orelse return;
+    defer rel(vol_red);
 
     const vol_x    = sld_x0 + 4.0 * B;
     const vol_slot = RectF{ .left=vol_x+g, .top=vy+g, .right=vol_x+B-g, .bottom=vy+B-g };
-    const vol_bg: *anyopaque = if (vol_red != null) vol_red.?
+    const vol_bg: *anyopaque = if (is_muted) vol_red
         else if (g_hover == .vol) btn_hv else btn_n;
     fillRoundedRect(ctx, .{ .rect=vol_slot, .radiusX=radius, .radiusY=radius }, vol_bg);
     drawGlyph(ctx, if (is_muted) &ICON_MUTE else &ICON_VOL, vol_slot, icon_br);
