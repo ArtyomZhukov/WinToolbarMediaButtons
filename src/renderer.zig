@@ -81,9 +81,6 @@ var g_ml      : u32 = 0;
 var g_hover   : HitZone = .none;
 var g_dw_fmt  : ?*anyopaque = null;
 var g_playing : bool = false;
-var g_br_n    : ?*anyopaque = null;
-var g_br_hv   : ?*anyopaque = null;
-var g_br_icon : ?*anyopaque = null;
 
 pub fn setHover(z: HitZone) bool {
     if (g_hover == z) return false;
@@ -187,9 +184,6 @@ pub fn init(compositor: *anyopaque, root_vis: *anyopaque, width: u32, height: u3
     g_h      = height;
     g_btn    = btn_size;
     g_ml     = margin_l;
-    g_br_n    = createBrush(d2d_ctx, .{ .r=0.07, .g=0.07, .b=0.07, .a=0.07 });
-    g_br_hv   = createBrush(d2d_ctx, .{ .r=0.36, .g=0.36, .b=0.36, .a=0.36 });
-    g_br_icon = createBrush(d2d_ctx, .{ .r=0.85, .g=0.85, .b=0.85, .a=0.85 });
     dwrite: {
         const dw_lib  = w.loadLibrary("dwrite.dll") orelse break :dwrite;
         const dw_proc = w.getProcAddress(dw_lib, "DWriteCreateFactory") orelse break :dwrite;
@@ -277,9 +271,12 @@ fn drawToolbar(ctx: *anyopaque) void {
     @as(*const fn (*anyopaque, *const ColorF) callconv(.winapi) void,
         @ptrCast(vt(ctx)[47]))(ctx, &ColorF{ .r=0, .g=0, .b=0, .a=0 });
 
-    const btn_n   = g_br_n    orelse return;
-    const btn_hv  = g_br_hv   orelse return;
-    const icon_br = g_br_icon orelse return;
+    const btn_n   = createBrush(ctx, .{ .r=0.07, .g=0.07, .b=0.07, .a=0.07 }) orelse return;
+    defer rel(btn_n);
+    const btn_hv  = createBrush(ctx, .{ .r=0.36, .g=0.36, .b=0.36, .a=0.36 }) orelse return;
+    defer rel(btn_hv);
+    const icon_br = createBrush(ctx, .{ .r=0.85, .g=0.85, .b=0.85, .a=0.85 }) orelse return;
+    defer rel(icon_br);
 
     const is_muted = audio.getMute();
     const volume   = audio.getVolume();
