@@ -30,7 +30,6 @@ function Write-ArHdr([string]$name, [int]$size) {
 $entries = @(
     @("KERNEL32.DLL", "_ExitProcess@4"),
     @("KERNEL32.DLL", "_GetModuleHandleW@4"),
-    @("KERNEL32.DLL", "_LoadLibraryW@4"),
     @("KERNEL32.DLL", "_GetProcAddress@8"),
     @("KERNEL32.DLL", "_LoadLibraryA@4"),
     @("USER32.DLL",   "_MessageBoxA@16"),

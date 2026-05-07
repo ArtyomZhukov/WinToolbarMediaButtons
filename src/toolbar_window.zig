@@ -7,8 +7,7 @@ const CLASS_NAME = w.L("WTMB");
 
 var g_btn_size  : w.INT = 32;
 var g_margin_l  : w.INT = 0;
-var g_dragging      : bool = false;
-var g_silence_ticks : u32  = 999;
+var g_dragging : bool = false;
 
 fn hitTest(x: w.INT) rend.HitZone {
     const ml = g_margin_l;
@@ -163,14 +162,7 @@ fn wndProc(hwnd: w.HWND, msg: w.UINT, wp: w.WPARAM, lp: w.LPARAM) callconv(.wina
         },
 
         w.WM_TIMER => {
-            const peak = audio.getPeak();
-            if (peak > 0.001) {
-                g_silence_ticks = 0;
-                _ = rend.setPlaying(true);
-            } else {
-                if (g_silence_ticks < 6) g_silence_ticks += 1;
-                if (g_silence_ticks >= 6) _ = rend.setPlaying(false);
-            }
+            _ = rend.setPlaying(audio.getPeak() > 0.001);
             rend.render();
         },
 
